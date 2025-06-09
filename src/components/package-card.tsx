@@ -12,7 +12,7 @@ import {
 import { useAuth } from "@/contexts/auth-context";
 import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 type PackageCardProps = {
   package: {
@@ -34,6 +34,27 @@ export function PackageCard({ package: pkg }: PackageCardProps) {
   const [isStarred, setIsStarred] = useState(false);
   const [isBookmarked, setIsBookmarked] = useState(false);
 
+  useEffect(() => {
+    const checkBookmark = async () => {
+      if (!user) return;
+
+      const response = await fetch(
+        `/api/bookmarks?packageName=${encodeURIComponent(pkg.name)}`
+      );
+      const data = await response.json();
+
+      if (response.ok && data.isBookmarked) {
+        setIsBookmarked(true);
+      } else {
+        setIsBookmarked(false);
+      }
+    };
+
+    if (user) {
+      checkBookmark();
+    }
+  }, [user, pkg.name]);
+
   const handleStar = () => {
     if (!user) {
       openLoginModal();
@@ -42,11 +63,38 @@ export function PackageCard({ package: pkg }: PackageCardProps) {
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!user) {
       openLoginModal();
+      return;
+    }
+
+    if (isBookmarked) {
+      // Delete bookmark
+      const response = await fetch("/api/bookmarks", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ packageName: pkg.name }),
+      });
+
+      if (response.ok) {
+        setIsBookmarked(false);
+      } else {
+        console.error("Error removing bookmark");
+      }
     } else {
-      setIsBookmarked(!isBookmarked);
+      // Add bookmark
+      const response = await fetch("/api/bookmarks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(pkg),
+      });
+
+      if (response.ok) {
+        setIsBookmarked(true);
+      } else {
+        console.error("Error adding bookmark");
+      }
     }
   };
 
