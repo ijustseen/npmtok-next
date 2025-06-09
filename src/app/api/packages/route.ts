@@ -40,6 +40,10 @@ type Package = {
     forks: string;
   };
   time: string;
+  repository: {
+    owner: string;
+    name: string;
+  } | null;
 };
 
 function formatNumber(num: number): string {
@@ -142,11 +146,16 @@ export async function GET(request: Request) {
             0;
 
           let authorHandle = "N/A";
+          let repository: { owner: string; name: string } | null = null;
           const repoUrl = pkg.collected.metadata.links.repository;
           if (repoUrl) {
-            const match = repoUrl.match(/github\.com\/([^/]+)/);
+            const match = repoUrl.match(/github\.com\/([^/]+)\/([^/]+)/);
             if (match) {
               authorHandle = match[1];
+              repository = {
+                owner: match[1],
+                name: match[2].replace(/\.git$/, "").replace(/\.js$/, ""),
+              };
             }
           } else if (pkg.collected.metadata.publisher?.username) {
             authorHandle = pkg.collected.metadata.publisher.username;
@@ -167,6 +176,7 @@ export async function GET(request: Request) {
               forks: formatNumber(pkg.collected.github?.forksCount || 0),
             },
             time: formatTime(pkg.collected.metadata.date),
+            repository,
           });
         }
 

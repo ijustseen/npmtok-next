@@ -38,6 +38,10 @@ export default async function SavedPackagesPage() {
       forks: string;
     };
     time: string;
+    repository: {
+      owner: string;
+      name: string;
+    } | null;
   };
 
   type BookmarkedPackage = {

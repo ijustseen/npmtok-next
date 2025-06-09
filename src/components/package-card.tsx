@@ -26,6 +26,10 @@ type PackageCardProps = {
       forks: string;
     };
     time: string;
+    repository: {
+      owner: string;
+      name: string;
+    } | null;
   };
 };
 
@@ -33,6 +37,30 @@ export function PackageCard({ package: pkg }: PackageCardProps) {
   const { user, openLoginModal } = useAuth();
   const [isStarred, setIsStarred] = useState(false);
   const [isBookmarked, setIsBookmarked] = useState(false);
+
+  useEffect(() => {
+    const checkStarred = async () => {
+      if (!user || !pkg.repository) return;
+
+      const { owner, name: repo } = pkg.repository;
+      const response = await fetch(
+        `/api/star?owner=${encodeURIComponent(owner)}&repo=${encodeURIComponent(
+          repo
+        )}`
+      );
+      const data = await response.json();
+
+      if (response.ok && data.isStarred) {
+        setIsStarred(true);
+      } else {
+        setIsStarred(false);
+      }
+    };
+
+    if (user) {
+      checkStarred();
+    }
+  }, [user, pkg.repository]);
 
   useEffect(() => {
     const checkBookmark = async () => {
@@ -55,11 +83,46 @@ export function PackageCard({ package: pkg }: PackageCardProps) {
     }
   }, [user, pkg.name]);
 
-  const handleStar = () => {
+  const handleStar = async () => {
     if (!user) {
       openLoginModal();
+      return;
+    }
+
+    if (!pkg.repository) {
+      console.error("Repository information is not available");
+      // Maybe show a toast message to the user
+      return;
+    }
+
+    const { owner, name: repo } = pkg.repository;
+
+    if (isStarred) {
+      // Unstar
+      const response = await fetch("/api/star", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ owner, repo }),
+      });
+
+      if (response.ok) {
+        setIsStarred(false);
+      } else {
+        console.error("Error unstarring repository");
+      }
     } else {
-      setIsStarred(!isStarred);
+      // Star
+      const response = await fetch("/api/star", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ owner, repo }),
+      });
+
+      if (response.ok) {
+        setIsStarred(true);
+      } else {
+        console.error("Error starring repository");
+      }
     }
   };
 
@@ -153,17 +216,21 @@ export function PackageCard({ package: pkg }: PackageCardProps) {
         </div>
 
         <div className="absolute top-1/2 -right-16 transform -translate-y-1/2 flex flex-col space-y-6">
-          <button
-            className={`transition-all active:scale-90 ${
-              isStarred ? "text-yellow-400" : "text-white hover:text-yellow-400"
-            }`}
-            onClick={handleStar}
-          >
-            <Star
-              className="w-8 h-8"
-              fill={isStarred ? "currentColor" : "none"}
-            />
-          </button>
+          {pkg.repository && (
+            <button
+              className={`transition-all active:scale-90 ${
+                isStarred
+                  ? "text-yellow-400"
+                  : "text-white hover:text-yellow-400"
+              }`}
+              onClick={handleStar}
+            >
+              <Star
+                className="w-8 h-8"
+                fill={isStarred ? "currentColor" : "none"}
+              />
+            </button>
+          )}
           <button
             className={`transition-all active:scale-90 ${
               isBookmarked

@@ -55,6 +55,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       provider: "github",
       options: {
         redirectTo: `${location.origin}/auth/callback`,
+        scopes: "public_repo",
       },
     });
   };
