@@ -12,6 +12,7 @@ import {
 import { useAuth } from "@/contexts/auth-context";
 import Image from "next/image";
 import Link from "next/link";
+import { useState } from "react";
 
 type PackageCardProps = {
   package: {
@@ -30,12 +31,14 @@ type PackageCardProps = {
 
 export function PackageCard({ package: pkg }: PackageCardProps) {
   const { user, openLoginModal } = useAuth();
+  const [isStarred, setIsStarred] = useState(false);
+  const [isBookmarked, setIsBookmarked] = useState(false);
 
   const handleStar = () => {
     if (!user) {
       openLoginModal();
     } else {
-      console.log("Starring package...");
+      setIsStarred(!isStarred);
     }
   };
 
@@ -43,7 +46,7 @@ export function PackageCard({ package: pkg }: PackageCardProps) {
     if (!user) {
       openLoginModal();
     } else {
-      console.log("Saving package...");
+      setIsBookmarked(!isBookmarked);
     }
   };
 
@@ -102,16 +105,34 @@ export function PackageCard({ package: pkg }: PackageCardProps) {
         </div>
 
         <div className="absolute top-1/2 -right-16 transform -translate-y-1/2 flex flex-col space-y-6">
-          <button className="text-white" onClick={handleStar}>
-            <Star className="w-8 h-8" />
+          <button
+            className={`transition-all active:scale-90 ${
+              isStarred ? "text-yellow-400" : "text-white hover:text-yellow-400"
+            }`}
+            onClick={handleStar}
+          >
+            <Star
+              className="w-8 h-8"
+              fill={isStarred ? "currentColor" : "none"}
+            />
           </button>
-          <button className="text-white">
-            <Bookmark className="w-8 h-8" onClick={handleSave} />
+          <button
+            className={`transition-all active:scale-90 ${
+              isBookmarked
+                ? "text-orange-500"
+                : "text-white hover:text-orange-500"
+            }`}
+            onClick={handleSave}
+          >
+            <Bookmark
+              className="w-8 h-8"
+              fill={isBookmarked ? "currentColor" : "none"}
+            />
           </button>
-          <button className="text-white">
+          <button className="text-white transition-all hover:text-blue-500 active:scale-90">
             <Share2 className="w-8 h-8" />
           </button>
-          <button className="text-white">
+          <button className="text-white transition-all hover:text-teal-400 active:scale-90">
             <ExternalLink className="w-8 h-8" />
           </button>
         </div>

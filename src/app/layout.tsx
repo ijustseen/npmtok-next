@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "NPMTok",
-  description: "TikTok, but for npm packages",
+  description: "TikTok but with npm packages instead",
 };
 
 export default function RootLayout({
