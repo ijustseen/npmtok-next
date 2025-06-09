@@ -1,3 +1,5 @@
+"use client";
+
 import {
   Star,
   Bookmark,
@@ -6,6 +8,8 @@ import {
   Download,
   GitFork,
 } from "lucide-react";
+import { useAuth } from "@/contexts/auth-context";
+import Image from "next/image";
 
 type PackageCardProps = {
   package: {
@@ -23,6 +27,16 @@ type PackageCardProps = {
 };
 
 export function PackageCard({ package: pkg }: PackageCardProps) {
+  const { user, openLoginModal } = useAuth();
+
+  const handleFork = () => {
+    if (!user) {
+      openLoginModal();
+    } else {
+      console.log("Forking package...");
+    }
+  };
+
   return (
     <div className="flex justify-center items-center h-full">
       <div className="bg-[#121212] rounded-lg shadow-lg text-white w-full max-w-md mx-auto relative p-6">
@@ -51,9 +65,11 @@ export function PackageCard({ package: pkg }: PackageCardProps) {
 
         <div className="flex items-center justify-between pt-4 border-t border-gray-800">
           <div className="flex items-center space-x-2">
-            <img
-              src="https://api.dicebear.com/8.x/pixel-art/svg?seed=gajic"
+            <Image
+              src={`https://api.dicebear.com/8.x/pixel-art/svg?seed=${pkg.author}`}
               alt="Author avatar"
+              width={32}
+              height={32}
               className="w-8 h-8 rounded-full"
             />
             <div>
@@ -69,6 +85,9 @@ export function PackageCard({ package: pkg }: PackageCardProps) {
           </button>
           <button className="text-white">
             <Bookmark className="w-8 h-8" />
+          </button>
+          <button onClick={handleFork}>
+            <GitFork className="w-8 h-8" />
           </button>
           <button className="text-white">
             <Share2 className="w-8 h-8" />
