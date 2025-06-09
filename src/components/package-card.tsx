@@ -5,11 +5,13 @@ import {
   Bookmark,
   Share2,
   ExternalLink,
+  Clipboard,
   Download,
   GitFork,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import Image from "next/image";
+import Link from "next/link";
 
 type PackageCardProps = {
   package: {
@@ -29,11 +31,19 @@ type PackageCardProps = {
 export function PackageCard({ package: pkg }: PackageCardProps) {
   const { user, openLoginModal } = useAuth();
 
-  const handleFork = () => {
+  const handleStar = () => {
     if (!user) {
       openLoginModal();
     } else {
-      console.log("Forking package...");
+      console.log("Starring package...");
+    }
+  };
+
+  const handleSave = () => {
+    if (!user) {
+      openLoginModal();
+    } else {
+      console.log("Saving package...");
     }
   };
 
@@ -65,29 +75,38 @@ export function PackageCard({ package: pkg }: PackageCardProps) {
 
         <div className="flex items-center justify-between pt-4 border-t border-gray-800">
           <div className="flex items-center space-x-2">
-            <Image
-              src={`https://api.dicebear.com/8.x/pixel-art/svg?seed=${pkg.author}`}
-              alt="Author avatar"
-              width={32}
-              height={32}
-              className="w-8 h-8 rounded-full"
-            />
+            <Link
+              href={`https://github.com/${pkg.author}`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Image
+                src={`https://api.dicebear.com/8.x/pixel-art/svg?seed=${pkg.author}`}
+                alt="Author avatar"
+                width={32}
+                height={32}
+                className="w-8 h-8 rounded-full"
+              />
+            </Link>
             <div>
-              <p className="text-sm">@{pkg.author}</p>
+              <Link
+                href={`https://github.com/${pkg.author}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <p className="text-sm hover:underline">@{pkg.author}</p>
+              </Link>
               <p className="text-xs text-gray-500">v{pkg.version}</p>
             </div>
           </div>
         </div>
 
         <div className="absolute top-1/2 -right-16 transform -translate-y-1/2 flex flex-col space-y-6">
-          <button className="text-white">
+          <button className="text-white" onClick={handleStar}>
             <Star className="w-8 h-8" />
           </button>
           <button className="text-white">
-            <Bookmark className="w-8 h-8" />
-          </button>
-          <button onClick={handleFork}>
-            <GitFork className="w-8 h-8" />
+            <Bookmark className="w-8 h-8" onClick={handleSave} />
           </button>
           <button className="text-white">
             <Share2 className="w-8 h-8" />
@@ -104,7 +123,7 @@ export function PackageCard({ package: pkg }: PackageCardProps) {
             </code>
             <div className="flex space-x-2">
               <button className="text-gray-400 hover:text-white">
-                <ExternalLink className="w-5 h-5" />
+                <Clipboard className="w-5 h-5" />
               </button>
             </div>
           </div>
