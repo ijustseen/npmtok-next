@@ -37,6 +37,8 @@ export function PackageCard({ package: pkg }: PackageCardProps) {
   const { user, openLoginModal } = useAuth();
   const [isStarred, setIsStarred] = useState(false);
   const [isBookmarked, setIsBookmarked] = useState(false);
+  const [isStarring, setIsStarring] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     const checkStarred = async () => {
@@ -95,34 +97,41 @@ export function PackageCard({ package: pkg }: PackageCardProps) {
       return;
     }
 
+    setIsStarring(true);
     const { owner, name: repo } = pkg.repository;
 
-    if (isStarred) {
-      // Unstar
-      const response = await fetch("/api/star", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ owner, repo }),
-      });
+    try {
+      if (isStarred) {
+        // Unstar
+        const response = await fetch("/api/star", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ owner, repo }),
+        });
 
-      if (response.ok) {
-        setIsStarred(false);
+        if (response.ok) {
+          setIsStarred(false);
+        } else {
+          console.error("Error unstarring repository");
+        }
       } else {
-        console.error("Error unstarring repository");
-      }
-    } else {
-      // Star
-      const response = await fetch("/api/star", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ owner, repo }),
-      });
+        // Star
+        const response = await fetch("/api/star", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ owner, repo }),
+        });
 
-      if (response.ok) {
-        setIsStarred(true);
-      } else {
-        console.error("Error starring repository");
+        if (response.ok) {
+          setIsStarred(true);
+        } else {
+          console.error("Error starring repository");
+        }
       }
+    } catch (error) {
+      console.error("Failed to star/unstar:", error);
+    } finally {
+      setIsStarring(false);
     }
   };
 
@@ -132,32 +141,39 @@ export function PackageCard({ package: pkg }: PackageCardProps) {
       return;
     }
 
-    if (isBookmarked) {
-      // Delete bookmark
-      const response = await fetch("/api/bookmarks", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ packageName: pkg.name }),
-      });
+    setIsSaving(true);
+    try {
+      if (isBookmarked) {
+        // Delete bookmark
+        const response = await fetch("/api/bookmarks", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ packageName: pkg.name }),
+        });
 
-      if (response.ok) {
-        setIsBookmarked(false);
+        if (response.ok) {
+          setIsBookmarked(false);
+        } else {
+          console.error("Error removing bookmark");
+        }
       } else {
-        console.error("Error removing bookmark");
-      }
-    } else {
-      // Add bookmark
-      const response = await fetch("/api/bookmarks", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(pkg),
-      });
+        // Add bookmark
+        const response = await fetch("/api/bookmarks", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(pkg),
+        });
 
-      if (response.ok) {
-        setIsBookmarked(true);
-      } else {
-        console.error("Error adding bookmark");
+        if (response.ok) {
+          setIsBookmarked(true);
+        } else {
+          console.error("Error adding bookmark");
+        }
       }
+    } catch (error) {
+      console.error("Failed to save/unsave:", error);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -222,8 +238,9 @@ export function PackageCard({ package: pkg }: PackageCardProps) {
                 isStarred
                   ? "text-yellow-400"
                   : "text-white hover:text-yellow-400"
-              }`}
+              } ${isStarring ? "opacity-50 cursor-not-allowed" : ""}`}
               onClick={handleStar}
+              disabled={isStarring}
             >
               <Star
                 className="w-8 h-8"
@@ -236,8 +253,9 @@ export function PackageCard({ package: pkg }: PackageCardProps) {
               isBookmarked
                 ? "text-orange-500"
                 : "text-white hover:text-orange-500"
-            }`}
+            } ${isSaving ? "opacity-50 cursor-not-allowed" : ""}`}
             onClick={handleSave}
+            disabled={isSaving}
           >
             <Bookmark
               className="w-8 h-8"
