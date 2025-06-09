@@ -1,7 +1,7 @@
 "use client";
 
 import { useAuth } from "@/contexts/auth-context";
-import { LogIn, Search } from "lucide-react";
+import { LogIn, Search, Bookmark, LogOut } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import Image from "next/image";
@@ -34,7 +34,7 @@ export function Header() {
 
   return (
     <header className="fixed top-0 left-0 right-0 z-10 bg-black/50 backdrop-blur-sm">
-      <div className="container mx-auto flex h-16 items-center justify-between px-4">
+      <div className="container mx-auto flex h-16 gap-2 items-center justify-between px-4">
         <Link href={user ? "/feed" : "/"} className="text-2xl font-bold">
           NPM<span className="text-pink-500">Tok</span>
         </Link>
@@ -61,17 +61,19 @@ export function Header() {
                 onClick={() => setMenuOpen(!menuOpen)}
               />
               {menuOpen && (
-                <div className="absolute right-0 mt-2 w-48 bg-gray-800 rounded-md shadow-lg py-1">
+                <div className="absolute right-0 mt-2 w-48 bg-[#121212] border border-gray-700 rounded-lg shadow-lg py-1">
                   <button
                     onClick={GoToSaved}
-                    className="block w-full text-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 cursor-pointer"
+                    className="w-full flex items-center gap-2 px-4 py-2 text-sm text-left text-gray-300 hover:bg-white/10"
                   >
+                    <Bookmark className="w-4 h-4" />
                     Saved Packages
                   </button>
                   <button
                     onClick={signOut}
-                    className="block w-full text-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 cursor-pointer"
+                    className="w-full flex items-center gap-2 px-4 py-2 text-sm text-left text-gray-300 hover:bg-white/10"
                   >
+                    <LogOut className="w-4 h-4" />
                     Sign Out
                   </button>
                 </div>

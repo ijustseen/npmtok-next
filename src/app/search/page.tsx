@@ -81,15 +81,16 @@ function SearchPage() {
             <Loader2 className="w-16 h-16 animate-spin" />
           </div>
         ) : (
-          <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
+          <div className="gap-8 [column-count:1] md:[column-count:2] lg:[column-count:3]">
             {results.length > 0
               ? results.map((pkg) => (
-                  <PackageCard
-                    key={pkg.name}
-                    package={pkg}
-                    onTagClick={handleTagClick}
-                    variant="small"
-                  />
+                  <div key={pkg.name} className="mb-8 break-inside-avoid">
+                    <PackageCard
+                      package={pkg}
+                      onTagClick={handleTagClick}
+                      variant="small"
+                    />
+                  </div>
                 ))
               : query && (
                   <div className="text-center col-span-full">
