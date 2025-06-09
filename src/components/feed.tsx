@@ -15,6 +15,12 @@ type Package = {
     forks: string;
   };
   time: string;
+  repository: {
+    owner: string;
+    name: string;
+  } | null;
+  tags: string[];
+  npmLink: string;
 };
 
 export function Feed() {

@@ -42,6 +42,8 @@ export default async function SavedPackagesPage() {
       owner: string;
       name: string;
     } | null;
+    tags: string[];
+    npmLink: string;
   };
 
   type BookmarkedPackage = {

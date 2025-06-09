@@ -20,6 +20,7 @@ type PackageCardProps = {
     description: string;
     author: string;
     version: string;
+    tags: string[];
     stats: {
       downloads: string;
       stars: string;
@@ -30,6 +31,7 @@ type PackageCardProps = {
       owner: string;
       name: string;
     } | null;
+    npmLink: string;
   };
 };
 
@@ -188,6 +190,17 @@ export function PackageCard({ package: pkg }: PackageCardProps) {
         <h2 className="text-4xl font-bold mb-2">{pkg.name}</h2>
         <p className="text-gray-400 mb-6">{pkg.description}</p>
 
+        <div className="flex flex-wrap gap-2 mb-6">
+          {pkg.tags?.slice(0, 5).map((tag) => (
+            <span
+              key={tag}
+              className="bg-gray-800 text-xs font-semibold px-2.5 py-1 rounded-full"
+            >
+              {tag}
+            </span>
+          ))}
+        </div>
+
         <div className="flex items-center space-x-6 text-gray-400 mb-6">
           <div className="flex items-center space-x-2">
             <Download className="w-5 h-5" />
@@ -265,9 +278,11 @@ export function PackageCard({ package: pkg }: PackageCardProps) {
           <button className="text-white transition-all hover:text-blue-500 active:scale-90">
             <Share2 className="w-8 h-8" />
           </button>
-          <button className="text-white transition-all hover:text-teal-400 active:scale-90">
-            <ExternalLink className="w-8 h-8" />
-          </button>
+          <Link href={pkg.npmLink} target="_blank" rel="noopener noreferrer">
+            <button className="text-white transition-all hover:text-teal-400 active:scale-90">
+              <ExternalLink className="w-8 h-8" />
+            </button>
+          </Link>
         </div>
 
         <div className="mt-6">

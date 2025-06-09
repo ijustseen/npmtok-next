@@ -18,6 +18,7 @@ type NpmsPackage = {
       author?: { name: string };
       publisher?: { username: string };
       links: { repository?: string; npm: string };
+      keywords?: string[];
     };
     github?: {
       starsCount: number;
@@ -34,6 +35,7 @@ type Package = {
   description: string;
   author: string;
   version: string;
+  tags: string[];
   stats: {
     downloads: string;
     stars: string;
@@ -44,6 +46,7 @@ type Package = {
     owner: string;
     name: string;
   } | null;
+  npmLink: string;
 };
 
 function formatNumber(num: number): string {
@@ -79,29 +82,45 @@ export async function GET(request: Request) {
   const size = parseInt(searchParams.get("size") || "10", 10);
 
   const collectedPackages: Package[] = [];
-  let currentSearchFrom = searchFrom;
-  const searchBatchSize = 25; // How many to fetch from npms.io at a time
+  const searchBatchSize = 250; // How many to fetch from npms.io at a time. Max is 250.
+  let attempts = 0;
+  const maxAttempts = 10;
 
   try {
-    while (collectedPackages.length < size) {
+    const countResponse = await fetch(
+      `https://api.npms.io/v2/search?q=not:deprecated+not:insecure&size=1`
+    );
+    if (!countResponse.ok) {
+      throw new Error(
+        `Failed to get total package count: ${countResponse.statusText}`
+      );
+    }
+    const { total: totalPackages } = await countResponse.json();
+    const maxApiFrom = 10000; // npms.io API limit for 'from' parameter
+
+    while (collectedPackages.length < size && attempts < maxAttempts) {
+      attempts++;
+      const searchSpace = Math.min(totalPackages, maxApiFrom);
+      const randomFrom =
+        searchSpace > searchBatchSize
+          ? Math.floor(Math.random() * (searchSpace - searchBatchSize))
+          : 0;
+
       const searchResponse = await fetch(
-        `https://api.npms.io/v2/search?q=not:deprecated+not:insecure&size=${searchBatchSize}&from=${currentSearchFrom}`
+        `https://api.npms.io/v2/search?q=not:deprecated+not:insecure&size=${searchBatchSize}&from=${randomFrom}`
       );
 
       if (!searchResponse.ok) {
         const errorText = await searchResponse.text();
         console.error("Failed to fetch from npms.io search:", errorText);
-        throw new Error(
-          `Failed to fetch from npms.io search: ${searchResponse.statusText}`
-        );
+        continue;
       }
 
       const searchResult: NpmsSearchResult = await searchResponse.json();
       const rawPackages = searchResult.results;
 
       if (rawPackages.length === 0) {
-        // No more packages from the source, break the loop
-        break;
+        continue;
       }
 
       const packageNames = rawPackages.map((r) => r.package.name);
@@ -170,6 +189,7 @@ export async function GET(request: Request) {
             description: pkg.collected.metadata.description,
             author: authorHandle,
             version: `v${pkg.collected.metadata.version}`,
+            tags: pkg.collected.metadata.keywords || [],
             stats: {
               downloads: formatNumber(weeklyDownloads),
               stars: formatNumber(pkg.collected.github?.starsCount || 0),
@@ -177,28 +197,19 @@ export async function GET(request: Request) {
             },
             time: formatTime(pkg.collected.metadata.date),
             repository,
+            npmLink: pkg.collected.metadata.links.npm,
           });
         }
 
         if (collectedPackages.length >= size) {
-          const nextSearchFrom = currentSearchFrom + i + 1;
-          return NextResponse.json({
-            packages: collectedPackages,
-            nextSearchFrom,
-          });
+          break;
         }
-      }
-
-      currentSearchFrom += rawPackages.length;
-
-      if (rawPackages.length < searchBatchSize) {
-        break;
       }
     }
 
     return NextResponse.json({
-      packages: collectedPackages,
-      nextSearchFrom: currentSearchFrom,
+      packages: collectedPackages.slice(0, size),
+      nextSearchFrom: searchFrom + collectedPackages.length,
     });
   } catch (error) {
     if (error instanceof Error) {
