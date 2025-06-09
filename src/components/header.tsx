@@ -3,14 +3,26 @@
 import { useAuth } from "@/contexts/auth-context";
 import { LogIn, Search } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 export function Header() {
   const { user, openLoginModal, signOut } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const [searchQuery, setSearchQuery] = useState(searchParams.get("q") || "");
+
+  useEffect(() => {
+    setSearchQuery(searchParams.get("q") || "");
+  }, [searchParams]);
+
+  const handleSearch = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" && searchQuery.trim() !== "") {
+      router.push(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
+    }
+  };
 
   const GoToSaved = () => {
     if (!user) {
@@ -31,6 +43,9 @@ export function Header() {
             type="text"
             placeholder="Search packages..."
             className="w-full h-10 px-4 pr-10 text-sm bg-[#121212] border border-gray-700 rounded-full focus:outline-none focus:ring-2 focus:ring-pink-500"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={handleSearch}
           />
           <Search className="absolute top-1/2 right-3 -translate-y-1/2 w-5 h-5 text-gray-400" />
         </div>

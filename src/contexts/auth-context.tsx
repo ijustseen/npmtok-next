@@ -1,7 +1,7 @@
 "use client";
 
 import { createClient } from "@/lib/supabase/client";
-import type { User } from "@supabase/supabase-js";
+import type { User, Session } from "@supabase/supabase-js";
 import {
   createContext,
   useContext,
@@ -13,6 +13,7 @@ import { LoginModal } from "@/components/login-modal";
 
 type AuthContextType = {
   user: User | null;
+  session: Session | null;
   signInWithGithub: () => Promise<void>;
   signOut: () => Promise<void>;
   openLoginModal: () => void;
@@ -24,23 +25,24 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const supabase = createClient();
   const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [isLoginModalOpen, setLoginModalOpen] = useState(false);
 
   useEffect(() => {
-    const getUser = async () => {
+    const getSession = async () => {
       const {
         data: { session },
       } = await supabase.auth.getSession();
-      if (session) {
-        setUser(session.user);
-      }
+      setSession(session);
+      setUser(session?.user ?? null);
       setLoading(false);
     };
-    getUser();
+    getSession();
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        setSession(session);
         setUser(session?.user ?? null);
       }
     );
@@ -63,6 +65,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signOut = async () => {
     await supabase.auth.signOut();
     setUser(null);
+    setSession(null);
   };
 
   const openLoginModal = () => setLoginModalOpen(true);
@@ -70,6 +73,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const value = {
     user,
+    session,
     signInWithGithub,
     signOut,
     openLoginModal,

@@ -1,34 +1,18 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 
-async function getSupabaseUser() {
-  const supabase = await createClient();
-  return supabase.auth.getUser();
-}
-
-async function getGithubToken() {
-  const supabase = await createClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  return session?.provider_token;
+function getToken(request: Request): string | null {
+  const authHeader = request.headers.get("Authorization");
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    return authHeader.substring(7);
+  }
+  return null;
 }
 
 // Check if a repository is starred
 export async function GET(request: Request) {
-  const {
-    data: { user },
-  } = await getSupabaseUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const token = await getGithubToken();
+  const token = getToken(request);
   if (!token) {
-    return NextResponse.json(
-      { error: "GitHub token not found" },
-      { status: 401 }
-    );
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const { searchParams } = new URL(request.url);
@@ -71,19 +55,9 @@ export async function GET(request: Request) {
 
 // Star a repository
 export async function POST(request: Request) {
-  const {
-    data: { user },
-  } = await getSupabaseUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const token = await getGithubToken();
+  const token = getToken(request);
   if (!token) {
-    return NextResponse.json(
-      { error: "GitHub token not found" },
-      { status: 401 }
-    );
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const { owner, repo } = await request.json();
@@ -139,19 +113,9 @@ export async function POST(request: Request) {
 
 // Unstar a repository
 export async function DELETE(request: Request) {
-  const {
-    data: { user },
-  } = await getSupabaseUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const token = await getGithubToken();
+  const token = getToken(request);
   if (!token) {
-    return NextResponse.json(
-      { error: "GitHub token not found" },
-      { status: 401 }
-    );
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const { owner, repo } = await request.json();

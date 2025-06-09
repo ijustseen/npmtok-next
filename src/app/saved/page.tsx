@@ -1,31 +1,48 @@
-import { createClient } from "@/lib/supabase/server";
-import { redirect } from "next/navigation";
+"use client";
+
+import { createClient } from "@/lib/supabase/client";
+import { useRouter } from "next/navigation";
 import { PackageCard } from "@/components/package-card";
 import { Header } from "@/components/header";
+import { useEffect, useState } from "react";
+import { useAuth } from "@/contexts/auth-context";
 
-export const dynamic = "force-dynamic";
+export default function SavedPackagesPage() {
+  const supabase = createClient();
+  const router = useRouter();
+  const { user } = useAuth();
+  const [bookmarkedPackages, setBookmarkedPackages] = useState<
+    BookmarkedPackage[]
+  >([]);
+  const [loading, setLoading] = useState(true);
 
-export default async function SavedPackagesPage() {
-  const supabase = await createClient();
+  useEffect(() => {
+    if (!user) {
+      router.push("/");
+      return;
+    }
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    const fetchBookmarkedPackages = async () => {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from("bookmarked_packages")
+        .select("package")
+        .eq("user_id", user.id);
 
-  if (!user) {
-    redirect("/");
-  }
+      if (error) {
+        console.error("Error fetching bookmarked packages:", error);
+      } else {
+        setBookmarkedPackages(data as BookmarkedPackage[]);
+      }
+      setLoading(false);
+    };
 
-  const { data: bookmarkedPackages, error } = await supabase
-    .from("bookmarked_packages")
-    .select("package")
-    .eq("user_id", user.id);
+    fetchBookmarkedPackages();
+  }, [user, supabase, router]);
 
-  if (error) {
-    console.error("Error fetching bookmarked packages:", error);
-    // TODO: Handle error state more gracefully
-    return <p>Error loading saved packages.</p>;
-  }
+  const handleTagClick = (tag: string) => {
+    router.push(`/search?q=${encodeURIComponent(tag)}`);
+  };
 
   type Package = {
     name: string;
@@ -50,16 +67,33 @@ export default async function SavedPackagesPage() {
     package: Package;
   };
 
+  if (loading) {
+    return (
+      <>
+        <Header />
+        <div className="container bg-black mx-auto py-10 pt-20">
+          <h1 className="text-4xl font-bold mb-8">Your Saved Packages</h1>
+          <p>Loading...</p>
+        </div>
+      </>
+    );
+  }
+
   return (
     <>
       <Header />
-      <div className="container mx-auto py-10 pt-20">
+      <div className="container bg-black mx-auto py-10 pt-20">
         <h1 className="text-4xl font-bold mb-8">Your Saved Packages</h1>
         {bookmarkedPackages && bookmarkedPackages.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {bookmarkedPackages.map(
               (item: BookmarkedPackage, index: number) => (
-                <PackageCard key={index} package={item.package} />
+                <PackageCard
+                  key={index}
+                  package={item.package}
+                  onTagClick={handleTagClick}
+                  variant="small"
+                />
               )
             )}
           </div>

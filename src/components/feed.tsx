@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { PackageCard } from "./package-card";
 import { Loader2, ArrowDown } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 type Package = {
   name: string;
@@ -31,6 +32,11 @@ export function Feed() {
   const [nextSearchFrom, setNextSearchFrom] = useState(0);
   const [isFetching, setIsFetching] = useState(false);
   const [shouldFetch, setShouldFetch] = useState(true);
+  const router = useRouter();
+
+  const handleTagClick = (tag: string) => {
+    router.push(`/search?q=${encodeURIComponent(tag)}`);
+  };
 
   const fetchPackages = useCallback(async () => {
     if (!shouldFetch || isFetching || !hasMore) return;
@@ -109,7 +115,7 @@ export function Feed() {
               ref={isLastElement ? lastPackageElementRef : null}
               className="h-screen w-screen snap-start flex items-center justify-center pt-16"
             >
-              <PackageCard package={pkg} />
+              <PackageCard package={pkg} onTagClick={handleTagClick} />
             </div>
           );
         })}
@@ -128,6 +134,7 @@ export function Feed() {
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 text-gray-400 text-xs flex items-center space-x-2 bg-gray-900/50 backdrop-blur-sm px-3 py-1.5 rounded-full">
           <ArrowDown className="w-4 h-4 animate-bounce" />
           <span>Scroll down or use ↑↓</span>
+          <ArrowDown className="w-4 h-4 animate-bounce" />
         </div>
       )}
     </>

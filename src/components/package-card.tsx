@@ -33,10 +33,16 @@ type PackageCardProps = {
     } | null;
     npmLink: string;
   };
+  onTagClick?: (tag: string) => void;
+  variant?: "default" | "small";
 };
 
-export function PackageCard({ package: pkg }: PackageCardProps) {
-  const { user, openLoginModal } = useAuth();
+export function PackageCard({
+  package: pkg,
+  onTagClick,
+  variant = "default",
+}: PackageCardProps) {
+  const { user, session, openLoginModal } = useAuth();
   const [isStarred, setIsStarred] = useState(false);
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [isStarring, setIsStarring] = useState(false);
@@ -44,18 +50,22 @@ export function PackageCard({ package: pkg }: PackageCardProps) {
 
   useEffect(() => {
     const checkStarred = async () => {
-      if (!user || !pkg.repository) return;
+      if (!user || !session?.provider_token || !pkg.repository) return;
 
       const { owner, name: repo } = pkg.repository;
       const response = await fetch(
         `/api/star?owner=${encodeURIComponent(owner)}&repo=${encodeURIComponent(
           repo
-        )}`
+        )}`,
+        {
+          headers: {
+            Authorization: `Bearer ${session.provider_token}`,
+          },
+        }
       );
-      const data = await response.json();
-
-      if (response.ok && data.isStarred) {
-        setIsStarred(true);
+      if (response.ok) {
+        const data = await response.json();
+        setIsStarred(data.isStarred);
       } else {
         setIsStarred(false);
       }
@@ -64,7 +74,7 @@ export function PackageCard({ package: pkg }: PackageCardProps) {
     if (user) {
       checkStarred();
     }
-  }, [user, pkg.repository]);
+  }, [user, session, pkg.repository]);
 
   useEffect(() => {
     const checkBookmark = async () => {
@@ -88,7 +98,7 @@ export function PackageCard({ package: pkg }: PackageCardProps) {
   }, [user, pkg.name]);
 
   const handleStar = async () => {
-    if (!user) {
+    if (!user || !session?.provider_token) {
       openLoginModal();
       return;
     }
@@ -103,11 +113,16 @@ export function PackageCard({ package: pkg }: PackageCardProps) {
     const { owner, name: repo } = pkg.repository;
 
     try {
+      const headers = {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.provider_token}`,
+      };
+
       if (isStarred) {
         // Unstar
         const response = await fetch("/api/star", {
           method: "DELETE",
-          headers: { "Content-Type": "application/json" },
+          headers: headers,
           body: JSON.stringify({ owner, repo }),
         });
 
@@ -120,7 +135,7 @@ export function PackageCard({ package: pkg }: PackageCardProps) {
         // Star
         const response = await fetch("/api/star", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: headers,
           body: JSON.stringify({ owner, repo }),
         });
 
@@ -179,6 +194,45 @@ export function PackageCard({ package: pkg }: PackageCardProps) {
     }
   };
 
+  const ActionButtons = ({ iconSize }: { iconSize: string }) => (
+    <>
+      {pkg.repository && (
+        <button
+          className={`transition-all active:scale-90 ${
+            isStarred ? "text-yellow-400" : "text-white hover:text-yellow-400"
+          } ${isStarring ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+          onClick={handleStar}
+          disabled={isStarring}
+        >
+          <Star
+            className={iconSize}
+            fill={isStarred ? "currentColor" : "none"}
+          />
+        </button>
+      )}
+      <button
+        className={`transition-all active:scale-90 ${
+          isBookmarked ? "text-orange-500" : "text-white hover:text-orange-500"
+        } ${isSaving ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+        onClick={handleSave}
+        disabled={isSaving}
+      >
+        <Bookmark
+          className={iconSize}
+          fill={isBookmarked ? "currentColor" : "none"}
+        />
+      </button>
+      <button className="text-white transition-all hover:text-blue-500 active:scale-90 cursor-pointer">
+        <Share2 className={iconSize} />
+      </button>
+      <Link href={pkg.npmLink} target="_blank" rel="noopener noreferrer">
+        <button className="text-white transition-all hover:text-teal-400 active:scale-90 cursor-pointer">
+          <ExternalLink className={iconSize} />
+        </button>
+      </Link>
+    </>
+  );
+
   return (
     <div className="flex justify-center items-center h-full">
       <div className="bg-[#121212] rounded-lg shadow-lg text-white w-full max-w-md mx-auto relative p-6">
@@ -187,17 +241,19 @@ export function PackageCard({ package: pkg }: PackageCardProps) {
           <span className="text-sm text-gray-400">x {pkg.time}</span>
         </div>
 
-        <h2 className="text-4xl font-bold mb-2">{pkg.name}</h2>
+        <h2 className="text-4xl font-bold mb-2 break-all">{pkg.name}</h2>
         <p className="text-gray-400 mb-6">{pkg.description}</p>
 
         <div className="flex flex-wrap gap-2 mb-6">
           {pkg.tags?.slice(0, 5).map((tag) => (
-            <span
+            <button
               key={tag}
-              className="bg-gray-800 text-xs font-semibold px-2.5 py-1 rounded-full"
+              onClick={() => onTagClick?.(tag)}
+              disabled={!onTagClick}
+              className="bg-gray-800 text-xs font-semibold px-2.5 py-1 rounded-full cursor-pointer hover:bg-gray-700 disabled:cursor-not-allowed disabled:hover:bg-gray-800"
             >
               {tag}
-            </span>
+            </button>
           ))}
         </div>
 
@@ -242,48 +298,18 @@ export function PackageCard({ package: pkg }: PackageCardProps) {
               <p className="text-xs text-gray-500">v{pkg.version}</p>
             </div>
           </div>
+          {variant === "small" && (
+            <div className="flex items-center space-x-4">
+              <ActionButtons iconSize="w-5 h-5" />
+            </div>
+          )}
         </div>
 
-        <div className="absolute top-1/2 -right-16 transform -translate-y-1/2 flex flex-col space-y-6">
-          {pkg.repository && (
-            <button
-              className={`transition-all active:scale-90 ${
-                isStarred
-                  ? "text-yellow-400"
-                  : "text-white hover:text-yellow-400"
-              } ${isStarring ? "opacity-50 cursor-not-allowed" : ""}`}
-              onClick={handleStar}
-              disabled={isStarring}
-            >
-              <Star
-                className="w-8 h-8"
-                fill={isStarred ? "currentColor" : "none"}
-              />
-            </button>
-          )}
-          <button
-            className={`transition-all active:scale-90 ${
-              isBookmarked
-                ? "text-orange-500"
-                : "text-white hover:text-orange-500"
-            } ${isSaving ? "opacity-50 cursor-not-allowed" : ""}`}
-            onClick={handleSave}
-            disabled={isSaving}
-          >
-            <Bookmark
-              className="w-8 h-8"
-              fill={isBookmarked ? "currentColor" : "none"}
-            />
-          </button>
-          <button className="text-white transition-all hover:text-blue-500 active:scale-90">
-            <Share2 className="w-8 h-8" />
-          </button>
-          <Link href={pkg.npmLink} target="_blank" rel="noopener noreferrer">
-            <button className="text-white transition-all hover:text-teal-400 active:scale-90">
-              <ExternalLink className="w-8 h-8" />
-            </button>
-          </Link>
-        </div>
+        {variant === "default" && (
+          <div className="absolute top-1/2 -right-16 transform -translate-y-1/2 flex flex-col space-y-6">
+            <ActionButtons iconSize="w-8 h-8" />
+          </div>
+        )}
 
         <div className="mt-6">
           <div className="bg-gray-900 rounded-md p-3 flex justify-between items-center">
@@ -291,7 +317,7 @@ export function PackageCard({ package: pkg }: PackageCardProps) {
               npm install {pkg.name}
             </code>
             <div className="flex space-x-2">
-              <button className="text-gray-400 hover:text-white">
+              <button className="text-gray-400 hover:text-white cursor-pointer">
                 <Clipboard className="w-5 h-5" />
               </button>
             </div>

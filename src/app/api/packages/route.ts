@@ -6,6 +6,7 @@ type NpmsSearchResult = {
       name: string;
     };
   }[];
+  total: number;
 };
 
 type NpmsPackage = {
@@ -76,141 +77,179 @@ function formatTime(dateString: string): string {
   return "today";
 }
 
+function transformNpmsPackage(pkg: NpmsPackage | null): Package | null {
+  const isValid = !!(
+    pkg &&
+    pkg.collected &&
+    pkg.collected.npm &&
+    pkg.collected.npm.downloads &&
+    pkg.collected.npm.downloads.length > 0
+  );
+
+  if (!isValid || !pkg) return null;
+
+  const weeklyDownloads =
+    pkg.collected.npm!.downloads.find(
+      (d: { from: string; to: string; count: number }) => {
+        const fromDate = new Date(d.from);
+        const toDate = new Date(d.to);
+        const diffDays = Math.round(
+          (toDate.getTime() - fromDate.getTime()) / (1000 * 60 * 60 * 24)
+        );
+        return diffDays >= 6 && diffDays <= 8;
+      }
+    )?.count ||
+    pkg.collected.npm!.downloads[1]?.count ||
+    0;
+
+  let authorHandle = "N/A";
+  let repository: { owner: string; name: string } | null = null;
+  const repoUrl = pkg.collected.metadata.links.repository;
+  if (repoUrl) {
+    const match = repoUrl.match(/github\.com\/([^/]+)\/([^/]+)/);
+    if (match) {
+      authorHandle = match[1];
+      repository = {
+        owner: match[1],
+        name: match[2].replace(/\.git$/, "").replace(/\.js$/, ""),
+      };
+    }
+  } else if (pkg.collected.metadata.publisher?.username) {
+    authorHandle = pkg.collected.metadata.publisher.username;
+  } else if (pkg.collected.metadata.author?.name) {
+    authorHandle = pkg.collected.metadata.author.name
+      .replace(/\s/g, "-")
+      .toLowerCase();
+  }
+
+  return {
+    name: pkg.collected.metadata.name,
+    description: pkg.collected.metadata.description,
+    author: authorHandle,
+    version: `v${pkg.collected.metadata.version}`,
+    tags: pkg.collected.metadata.keywords || [],
+    stats: {
+      downloads: formatNumber(weeklyDownloads),
+      stars: formatNumber(pkg.collected.github?.starsCount || 0),
+      forks: formatNumber(pkg.collected.github?.forksCount || 0),
+    },
+    time: formatTime(pkg.collected.metadata.date),
+    repository,
+    npmLink: pkg.collected.metadata.links.npm,
+  };
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const searchFrom = parseInt(searchParams.get("searchFrom") || "0", 10);
+  const query = searchParams.get("q");
   const size = parseInt(searchParams.get("size") || "10", 10);
 
-  const collectedPackages: Package[] = [];
-  const searchBatchSize = 250; // How many to fetch from npms.io at a time. Max is 250.
-  let attempts = 0;
-  const maxAttempts = 10;
-
   try {
-    const countResponse = await fetch(
-      `https://api.npms.io/v2/search?q=not:deprecated+not:insecure&size=1`
-    );
-    if (!countResponse.ok) {
-      throw new Error(
-        `Failed to get total package count: ${countResponse.statusText}`
-      );
-    }
-    const { total: totalPackages } = await countResponse.json();
-    const maxApiFrom = 10000; // npms.io API limit for 'from' parameter
-
-    while (collectedPackages.length < size && attempts < maxAttempts) {
-      attempts++;
-      const searchSpace = Math.min(totalPackages, maxApiFrom);
-      const randomFrom =
-        searchSpace > searchBatchSize
-          ? Math.floor(Math.random() * (searchSpace - searchBatchSize))
-          : 0;
-
+    if (query) {
+      // --- SEARCH LOGIC ---
       const searchResponse = await fetch(
-        `https://api.npms.io/v2/search?q=not:deprecated+not:insecure&size=${searchBatchSize}&from=${randomFrom}`
+        `https://api.npms.io/v2/search?q=${encodeURIComponent(
+          query
+        )}&size=${size}`
       );
-
       if (!searchResponse.ok) {
-        const errorText = await searchResponse.text();
-        console.error("Failed to fetch from npms.io search:", errorText);
-        continue;
+        throw new Error(
+          `Failed to search packages: ${searchResponse.statusText}`
+        );
       }
-
       const searchResult: NpmsSearchResult = await searchResponse.json();
       const rawPackages = searchResult.results;
-
-      if (rawPackages.length === 0) {
-        continue;
-      }
 
       const packageNames = rawPackages.map((r) => r.package.name);
       const packageDetailsPromises = packageNames.map((name: string) =>
         fetch(
           `https://api.npms.io/v2/package/${encodeURIComponent(name)}`
-        ).then((res) => {
-          if (!res.ok) {
-            return null;
-          }
-          return res.json();
-        })
+        ).then((res) => (res.ok ? res.json() : null))
       );
 
       const packageDetailsResults = await Promise.all(packageDetailsPromises);
 
-      for (let i = 0; i < packageDetailsResults.length; i++) {
-        const pkg = packageDetailsResults[i] as NpmsPackage | null;
+      const collectedPackages: Package[] = packageDetailsResults
+        .map(transformNpmsPackage)
+        .filter((p): p is Package => p !== null);
 
-        const isValid = !!(
-          pkg &&
-          pkg.collected &&
-          pkg.collected.npm &&
-          pkg.collected.npm.downloads &&
-          pkg.collected.npm.downloads.length > 0
+      return NextResponse.json({
+        packages: collectedPackages,
+        nextSearchFrom: 0, // Not applicable for search
+      });
+    } else {
+      // --- FEED LOGIC ---
+      const searchFrom = parseInt(searchParams.get("searchFrom") || "0", 10);
+      const collectedPackages: Package[] = [];
+      const searchBatchSize = 250; // How many to fetch from npms.io at a time. Max is 250.
+      let attempts = 0;
+      const maxAttempts = 10;
+
+      const countResponse = await fetch(
+        `https://api.npms.io/v2/search?q=not:deprecated+not:insecure&size=1`
+      );
+      if (!countResponse.ok) {
+        throw new Error(
+          `Failed to get total package count: ${countResponse.statusText}`
+        );
+      }
+      const { total: totalPackages } = await countResponse.json();
+      const maxApiFrom = 10000; // npms.io API limit for 'from' parameter
+
+      while (collectedPackages.length < size && attempts < maxAttempts) {
+        attempts++;
+        const searchSpace = Math.min(totalPackages, maxApiFrom);
+        const randomFrom =
+          searchSpace > searchBatchSize
+            ? Math.floor(Math.random() * (searchSpace - searchBatchSize))
+            : 0;
+
+        const searchResponse = await fetch(
+          `https://api.npms.io/v2/search?q=not:deprecated+not:insecure&size=${searchBatchSize}&from=${randomFrom}`
         );
 
-        if (isValid) {
-          const weeklyDownloads =
-            pkg.collected.npm!.downloads.find(
-              (d: { from: string; to: string; count: number }) => {
-                const fromDate = new Date(d.from);
-                const toDate = new Date(d.to);
-                const diffDays = Math.round(
-                  (toDate.getTime() - fromDate.getTime()) /
-                    (1000 * 60 * 60 * 24)
-                );
-                return diffDays >= 6 && diffDays <= 8;
-              }
-            )?.count ||
-            pkg.collected.npm!.downloads[1]?.count ||
-            0;
-
-          let authorHandle = "N/A";
-          let repository: { owner: string; name: string } | null = null;
-          const repoUrl = pkg.collected.metadata.links.repository;
-          if (repoUrl) {
-            const match = repoUrl.match(/github\.com\/([^/]+)\/([^/]+)/);
-            if (match) {
-              authorHandle = match[1];
-              repository = {
-                owner: match[1],
-                name: match[2].replace(/\.git$/, "").replace(/\.js$/, ""),
-              };
-            }
-          } else if (pkg.collected.metadata.publisher?.username) {
-            authorHandle = pkg.collected.metadata.publisher.username;
-          } else if (pkg.collected.metadata.author?.name) {
-            authorHandle = pkg.collected.metadata.author.name
-              .replace(/\s/g, "-")
-              .toLowerCase();
-          }
-
-          collectedPackages.push({
-            name: pkg.collected.metadata.name,
-            description: pkg.collected.metadata.description,
-            author: authorHandle,
-            version: `v${pkg.collected.metadata.version}`,
-            tags: pkg.collected.metadata.keywords || [],
-            stats: {
-              downloads: formatNumber(weeklyDownloads),
-              stars: formatNumber(pkg.collected.github?.starsCount || 0),
-              forks: formatNumber(pkg.collected.github?.forksCount || 0),
-            },
-            time: formatTime(pkg.collected.metadata.date),
-            repository,
-            npmLink: pkg.collected.metadata.links.npm,
-          });
+        if (!searchResponse.ok) {
+          const errorText = await searchResponse.text();
+          console.error("Failed to fetch from npms.io search:", errorText);
+          continue;
         }
 
-        if (collectedPackages.length >= size) {
-          break;
+        const searchResult: NpmsSearchResult = await searchResponse.json();
+        const rawPackages = searchResult.results;
+
+        if (rawPackages.length === 0) {
+          continue;
+        }
+
+        const packageNames = rawPackages.map((r) => r.package.name);
+        const packageDetailsPromises = packageNames.map((name: string) =>
+          fetch(
+            `https://api.npms.io/v2/package/${encodeURIComponent(name)}`
+          ).then((res) => {
+            if (!res.ok) {
+              return null;
+            }
+            return res.json();
+          })
+        );
+
+        const packageDetailsResults = await Promise.all(packageDetailsPromises);
+
+        for (const pkgDetails of packageDetailsResults) {
+          const transformed = transformNpmsPackage(pkgDetails);
+          if (transformed) {
+            collectedPackages.push(transformed);
+          }
+          if (collectedPackages.length >= size) {
+            break;
+          }
         }
       }
+      return NextResponse.json({
+        packages: collectedPackages.slice(0, size),
+        nextSearchFrom: searchFrom + collectedPackages.length,
+      });
     }
-
-    return NextResponse.json({
-      packages: collectedPackages.slice(0, size),
-      nextSearchFrom: searchFrom + collectedPackages.length,
-    });
   } catch (error) {
     if (error instanceof Error) {
       console.error(error.message);
@@ -218,7 +257,7 @@ export async function GET(request: Request) {
         JSON.stringify({
           error: error.message,
           packages: [],
-          nextSearchFrom: searchFrom,
+          nextSearchFrom: searchParams.get("searchFrom") || "0",
         }),
         { status: 500, headers: { "Content-Type": "application/json" } }
       );
