@@ -3,7 +3,7 @@
 import { Header } from "@/components/header";
 import { useSearchParams, useRouter } from "next/navigation";
 import { PackageCard } from "@/components/package-card";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { Loader2 } from "lucide-react";
 
 type Package = {
@@ -27,7 +27,17 @@ type Package = {
 };
 
 export default function SearchPageWrapper() {
-  return <SearchPage />;
+  return (
+    <Suspense
+      fallback={
+        <div className="bg-black text-white min-h-screen flex justify-center items-center">
+          <Loader2 className="w-16 h-16 animate-spin" />
+        </div>
+      }
+    >
+      <SearchPage />
+    </Suspense>
+  );
 }
 
 function SearchPage() {

@@ -4,10 +4,25 @@ import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { PackageCard } from "@/components/package-card";
 import { Header } from "@/components/header";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useAuth } from "@/contexts/auth-context";
+import { Loader2 } from "lucide-react";
 
-export default function SavedPackagesPage() {
+export default function SavedPackagesPageWrapper() {
+  return (
+    <Suspense
+      fallback={
+        <div className="bg-black text-white min-h-screen flex justify-center items-center">
+          <Loader2 className="w-16 h-16 animate-spin" />
+        </div>
+      }
+    >
+      <SavedPackagesPage />
+    </Suspense>
+  );
+}
+
+function SavedPackagesPage() {
   const supabase = createClient();
   const router = useRouter();
   const { user } = useAuth();
