@@ -308,7 +308,7 @@ export function PackageCard({
                 onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
                 className="text-blue-400 hover:underline text-sm font-medium mt-2"
               >
-                {isDescriptionExpanded ? "Свернуть" : "Читать далее"}
+                {isDescriptionExpanded ? "Collapse" : "Read more"}
               </button>
             )}
           </div>

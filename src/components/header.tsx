@@ -17,7 +17,7 @@ export function Header() {
   const [searchQuery, setSearchQuery] = useState(searchParams.get("q") || "");
   const homeUrl = user ? `/feed?refresh=${Date.now()}` : "/";
 
-  // Данные репозитория для звезды
+  // Repository data for starring
   const REPO_OWNER = "ijustseen";
   const REPO_NAME = "npmtok-next";
 
@@ -25,7 +25,7 @@ export function Header() {
     setSearchQuery(searchParams.get("q") || "");
   }, [searchParams]);
 
-  // Проверяем статус звезды при загрузке
+  // Check star status on load
   useEffect(() => {
     const checkStarred = async () => {
       if (!user || !session?.provider_token) return;
