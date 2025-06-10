@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
 
 type NpmsSearchResult = {
   results: {
@@ -48,6 +49,7 @@ type Package = {
     name: string;
   } | null;
   npmLink: string;
+  isBookmarked: boolean;
 };
 
 function formatNumber(num: number): string {
@@ -77,7 +79,10 @@ function formatTime(dateString: string): string {
   return "today";
 }
 
-function transformNpmsPackage(pkg: NpmsPackage | null): Package | null {
+function transformNpmsPackage(
+  pkg: NpmsPackage | null,
+  bookmarkedPackagesSet: Set<string>
+): Package | null {
   const isValid = !!(
     pkg &&
     pkg.collected &&
@@ -122,8 +127,10 @@ function transformNpmsPackage(pkg: NpmsPackage | null): Package | null {
       .toLowerCase();
   }
 
+  const packageName = pkg.collected.metadata.name;
+
   return {
-    name: pkg.collected.metadata.name,
+    name: packageName,
     description: pkg.collected.metadata.description,
     author: authorHandle,
     version: `v${pkg.collected.metadata.version}`,
@@ -136,6 +143,7 @@ function transformNpmsPackage(pkg: NpmsPackage | null): Package | null {
     time: formatTime(pkg.collected.metadata.date),
     repository,
     npmLink: pkg.collected.metadata.links.npm,
+    isBookmarked: bookmarkedPackagesSet.has(packageName),
   };
 }
 
@@ -145,6 +153,26 @@ export async function GET(request: Request) {
   const size = parseInt(searchParams.get("size") || "10", 10);
 
   try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    let bookmarkedPackagesSet = new Set<string>();
+
+    if (user) {
+      const { data: bookmarkedPackages } = await supabase
+        .from("bookmarked_packages")
+        .select("package->>name")
+        .eq("user_id", user.id);
+
+      if (bookmarkedPackages) {
+        bookmarkedPackagesSet = new Set(
+          bookmarkedPackages.map((p: { name: string }) => p.name)
+        );
+      }
+    }
+
     if (query) {
       // --- SEARCH LOGIC ---
       const searchResponse = await fetch(
@@ -170,7 +198,7 @@ export async function GET(request: Request) {
       const packageDetailsResults = await Promise.all(packageDetailsPromises);
 
       const collectedPackages: Package[] = packageDetailsResults
-        .map(transformNpmsPackage)
+        .map((p) => transformNpmsPackage(p, bookmarkedPackagesSet))
         .filter((p): p is Package => p !== null);
 
       return NextResponse.json({
@@ -178,10 +206,10 @@ export async function GET(request: Request) {
         nextSearchFrom: 0, // Not applicable for search
       });
     } else {
-      // --- FEED LOGIC ---
+      // --- FEED LOGIC (OPTIMIZED) ---
       const searchFrom = parseInt(searchParams.get("searchFrom") || "0", 10);
       const collectedPackages: Package[] = [];
-      const searchBatchSize = 250; // How many to fetch from npms.io at a time. Max is 250.
+      const searchBatchSize = 250;
       let attempts = 0;
       const maxAttempts = 10;
 
@@ -194,7 +222,7 @@ export async function GET(request: Request) {
         );
       }
       const { total: totalPackages } = await countResponse.json();
-      const maxApiFrom = 10000; // npms.io API limit for 'from' parameter
+      const maxApiFrom = 10000;
 
       while (collectedPackages.length < size && attempts < maxAttempts) {
         attempts++;
@@ -209,39 +237,36 @@ export async function GET(request: Request) {
         );
 
         if (!searchResponse.ok) {
-          const errorText = await searchResponse.text();
-          console.error("Failed to fetch from npms.io search:", errorText);
+          console.error(
+            "Failed to fetch from npms.io search:",
+            await searchResponse.text()
+          );
           continue;
         }
 
         const searchResult: NpmsSearchResult = await searchResponse.json();
-        const rawPackages = searchResult.results;
-
-        if (rawPackages.length === 0) {
+        if (searchResult.results.length === 0) {
           continue;
         }
 
-        const packageNames = rawPackages.map((r) => r.package.name);
-        const packageDetailsPromises = packageNames.map((name: string) =>
-          fetch(
-            `https://api.npms.io/v2/package/${encodeURIComponent(name)}`
-          ).then((res) => {
-            if (!res.ok) {
-              return null;
-            }
-            return res.json();
-          })
-        );
+        const packageNames = searchResult.results.map((r) => r.package.name);
 
-        const packageDetailsResults = await Promise.all(packageDetailsPromises);
-
-        for (const pkgDetails of packageDetailsResults) {
-          const transformed = transformNpmsPackage(pkgDetails);
-          if (transformed) {
-            collectedPackages.push(transformed);
-          }
+        for (const name of packageNames) {
           if (collectedPackages.length >= size) {
             break;
+          }
+          const pkgDetailsResponse = await fetch(
+            `https://api.npms.io/v2/package/${encodeURIComponent(name)}`
+          );
+          if (pkgDetailsResponse.ok) {
+            const pkgDetails = await pkgDetailsResponse.json();
+            const transformed = transformNpmsPackage(
+              pkgDetails,
+              bookmarkedPackagesSet
+            );
+            if (transformed) {
+              collectedPackages.push(transformed);
+            }
           }
         }
       }
@@ -251,17 +276,10 @@ export async function GET(request: Request) {
       });
     }
   } catch (error) {
-    if (error instanceof Error) {
-      console.error(error.message);
-      return new NextResponse(
-        JSON.stringify({
-          error: error.message,
-          packages: [],
-          nextSearchFrom: searchParams.get("searchFrom") || "0",
-        }),
-        { status: 500, headers: { "Content-Type": "application/json" } }
-      );
-    }
-    return new NextResponse("Internal Server Error", { status: 500 });
+    console.error("Error in GET /api/packages:", error);
+    return NextResponse.json(
+      { error: "Internal Server Error" },
+      { status: 500 }
+    );
   }
 }

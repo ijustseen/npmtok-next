@@ -23,6 +23,7 @@ type Package = {
     name: string;
   } | null;
   npmLink: string;
+  isBookmarked?: boolean;
 };
 
 export default function SearchPageWrapper() {

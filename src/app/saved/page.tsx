@@ -61,6 +61,7 @@ export default function SavedPackagesPage() {
     } | null;
     tags: string[];
     npmLink: string;
+    isBookmarked?: boolean;
   };
 
   type BookmarkedPackage = {
@@ -90,7 +91,7 @@ export default function SavedPackagesPage() {
               (item: BookmarkedPackage, index: number) => (
                 <div key={index} className="mb-8 break-inside-avoid">
                   <PackageCard
-                    package={item.package}
+                    package={{ ...item.package, isBookmarked: true }}
                     onTagClick={handleTagClick}
                     variant="small"
                   />

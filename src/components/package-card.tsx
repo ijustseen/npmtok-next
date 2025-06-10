@@ -33,6 +33,7 @@ type PackageCardProps = {
       name: string;
     } | null;
     npmLink: string;
+    isBookmarked?: boolean;
   };
   onTagClick?: (tag: string) => void;
   variant?: "default" | "small";
@@ -45,7 +46,7 @@ export function PackageCard({
 }: PackageCardProps) {
   const { user, session, openLoginModal } = useAuth();
   const [isStarred, setIsStarred] = useState(false);
-  const [isBookmarked, setIsBookmarked] = useState(false);
+  const [isBookmarked, setIsBookmarked] = useState(pkg.isBookmarked || false);
   const [isStarring, setIsStarring] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
@@ -82,27 +83,6 @@ export function PackageCard({
       checkStarred();
     }
   }, [user, session, pkg.repository]);
-
-  useEffect(() => {
-    const checkBookmark = async () => {
-      if (!user) return;
-
-      const response = await fetch(
-        `/api/bookmarks?packageName=${encodeURIComponent(pkg.name)}`
-      );
-      const data = await response.json();
-
-      if (response.ok && data.isBookmarked) {
-        setIsBookmarked(true);
-      } else {
-        setIsBookmarked(false);
-      }
-    };
-
-    if (user) {
-      checkBookmark();
-    }
-  }, [user, pkg.name]);
 
   const handleStar = async () => {
     if (!user || !session?.provider_token) {

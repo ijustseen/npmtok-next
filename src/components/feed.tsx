@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { PackageCard } from "./package-card";
 import { Loader2, ArrowDown } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 type Package = {
   name: string;
@@ -22,6 +22,7 @@ type Package = {
   } | null;
   tags: string[];
   npmLink: string;
+  isBookmarked?: boolean;
 };
 
 export function Feed() {
@@ -33,6 +34,19 @@ export function Feed() {
   const [isFetching, setIsFetching] = useState(false);
   const [shouldFetch, setShouldFetch] = useState(true);
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    const refresh = searchParams.get("refresh");
+    if (refresh) {
+      setPackages([]);
+      setNextSearchFrom(0);
+      setHasMore(true);
+      setShouldFetch(true);
+      // Clean the URL
+      router.replace("/feed", { scroll: false });
+    }
+  }, [searchParams, router]);
 
   const handleTagClick = (tag: string) => {
     router.push(`/search?q=${encodeURIComponent(tag)}`);
@@ -90,7 +104,7 @@ export function Feed() {
     fetchPackages();
   }, [fetchPackages]);
 
-  const lastPackageElementRef = useCallback(
+  const loadMorePackagesRef = useCallback(
     (node: HTMLDivElement) => {
       if (isFetching) return;
       if (observer.current) observer.current.disconnect();
@@ -108,11 +122,11 @@ export function Feed() {
     <>
       <div className="h-screen w-screen overflow-y-auto snap-y snap-mandatory">
         {packages.map((pkg, index) => {
-          const isLastElement = index === packages.length - 1;
+          const isTriggerElement = index === packages.length - 4;
           return (
             <div
               key={`${pkg.name}-${index}`}
-              ref={isLastElement ? lastPackageElementRef : null}
+              ref={isTriggerElement ? loadMorePackagesRef : null}
               className="h-screen w-screen snap-start flex items-center justify-center pt-16"
             >
               <PackageCard package={pkg} onTagClick={handleTagClick} />

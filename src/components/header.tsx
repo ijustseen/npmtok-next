@@ -13,6 +13,7 @@ export function Header() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [searchQuery, setSearchQuery] = useState(searchParams.get("q") || "");
+  const homeUrl = user ? `/feed?refresh=${Date.now()}` : "/";
 
   useEffect(() => {
     setSearchQuery(searchParams.get("q") || "");
@@ -35,7 +36,7 @@ export function Header() {
   return (
     <header className="fixed top-0 left-0 right-0 z-10 bg-black/50 backdrop-blur-sm">
       <div className="container mx-auto flex h-16 gap-2 items-center justify-between px-4">
-        <Link href={user ? "/feed" : "/"} className="text-2xl font-bold">
+        <Link href={homeUrl} className="text-2xl font-bold">
           NPM<span className="text-pink-500">Tok</span>
         </Link>
         <div className="relative flex-1 max-w-md mx-auto justify-self-center">
