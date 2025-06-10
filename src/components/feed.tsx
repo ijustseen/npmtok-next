@@ -125,9 +125,9 @@ export function Feed() {
           const isTriggerElement = index === packages.length - 4;
           return (
             <div
-              key={`${pkg.name}-${index}`}
+              key={pkg.name}
               ref={isTriggerElement ? loadMorePackagesRef : null}
-              className="h-screen w-screen snap-start flex items-center justify-center pt-16"
+              className="h-screen w-screen snap-start flex items-center justify-center pt-16 optimized-card"
             >
               <PackageCard package={pkg} onTagClick={handleTagClick} />
             </div>

@@ -25,6 +25,7 @@ type NpmsPackage = {
     github?: {
       starsCount: number;
       forksCount: number;
+      homepage?: string;
     };
     npm?: {
       downloads: { from: string; to: string; count: number }[];
@@ -79,10 +80,10 @@ function formatTime(dateString: string): string {
   return "today";
 }
 
-function transformNpmsPackage(
+async function transformNpmsPackage(
   pkg: NpmsPackage | null,
   bookmarkedPackagesSet: Set<string>
-): Package | null {
+): Promise<Package | null> {
   const isValid = !!(
     pkg &&
     pkg.collected &&
@@ -109,7 +110,8 @@ function transformNpmsPackage(
 
   let authorHandle = "N/A";
   let repository: { owner: string; name: string } | null = null;
-  const repoUrl = pkg.collected.metadata.links.repository;
+  const repoUrl =
+    pkg.collected.metadata.links.repository || pkg.collected.github?.homepage;
   if (repoUrl) {
     const match = repoUrl.match(/github\.com\/([^/]+)\/([^/]+)/);
     if (match) {
@@ -128,6 +130,33 @@ function transformNpmsPackage(
   }
 
   const packageName = pkg.collected.metadata.name;
+  let starsCount = pkg.collected.github?.starsCount || 0;
+  let forksCount = pkg.collected.github?.forksCount || 0;
+
+  if (!pkg.collected.github && repository) {
+    try {
+      const res = await fetch(
+        `https://api.github.com/repos/${repository.owner}/${repository.name}`,
+        {
+          headers: {
+            ...(process.env.GITHUB_TOKEN
+              ? { Authorization: `token ${process.env.GITHUB_TOKEN}` }
+              : {}),
+          },
+        }
+      );
+      if (res.ok) {
+        const repoData = await res.json();
+        starsCount = repoData.stargazers_count;
+        forksCount = repoData.forks_count;
+      }
+    } catch (error) {
+      console.error(
+        `Failed to fetch github data for ${repository.owner}/${repository.name}`,
+        error
+      );
+    }
+  }
 
   return {
     name: packageName,
@@ -137,14 +166,34 @@ function transformNpmsPackage(
     tags: pkg.collected.metadata.keywords || [],
     stats: {
       downloads: formatNumber(weeklyDownloads),
-      stars: formatNumber(pkg.collected.github?.starsCount || 0),
-      forks: formatNumber(pkg.collected.github?.forksCount || 0),
+      stars: formatNumber(starsCount),
+      forks: formatNumber(forksCount),
     },
     time: formatTime(pkg.collected.metadata.date),
     repository,
     npmLink: pkg.collected.metadata.links.npm,
     isBookmarked: bookmarkedPackagesSet.has(packageName),
   };
+}
+
+async function getTransformedPackages(
+  packageNames: string[],
+  bookmarkedPackagesSet: Set<string>
+): Promise<Package[]> {
+  const packageDetailsPromises = packageNames.map((name: string) =>
+    fetch(`https://api.npms.io/v2/package/${encodeURIComponent(name)}`).then(
+      (res) => (res.ok ? res.json() : null)
+    )
+  );
+  const packageDetailsResults = await Promise.all(packageDetailsPromises);
+
+  const transformedPackages = await Promise.all(
+    packageDetailsResults.map((p) =>
+      transformNpmsPackage(p, bookmarkedPackagesSet)
+    )
+  );
+
+  return transformedPackages.filter((p): p is Package => p !== null);
 }
 
 export async function GET(request: Request) {
@@ -189,17 +238,10 @@ export async function GET(request: Request) {
       const rawPackages = searchResult.results;
 
       const packageNames = rawPackages.map((r) => r.package.name);
-      const packageDetailsPromises = packageNames.map((name: string) =>
-        fetch(
-          `https://api.npms.io/v2/package/${encodeURIComponent(name)}`
-        ).then((res) => (res.ok ? res.json() : null))
+      const collectedPackages = await getTransformedPackages(
+        packageNames,
+        bookmarkedPackagesSet
       );
-
-      const packageDetailsResults = await Promise.all(packageDetailsPromises);
-
-      const collectedPackages: Package[] = packageDetailsResults
-        .map((p) => transformNpmsPackage(p, bookmarkedPackagesSet))
-        .filter((p): p is Package => p !== null);
 
       return NextResponse.json({
         packages: collectedPackages,
@@ -250,29 +292,24 @@ export async function GET(request: Request) {
         }
 
         const packageNames = searchResult.results.map((r) => r.package.name);
+        const newPackages = await getTransformedPackages(
+          packageNames,
+          bookmarkedPackagesSet
+        );
 
-        for (const name of packageNames) {
-          if (collectedPackages.length >= size) {
-            break;
-          }
-          const pkgDetailsResponse = await fetch(
-            `https://api.npms.io/v2/package/${encodeURIComponent(name)}`
-          );
-          if (pkgDetailsResponse.ok) {
-            const pkgDetails = await pkgDetailsResponse.json();
-            const transformed = transformNpmsPackage(
-              pkgDetails,
-              bookmarkedPackagesSet
-            );
-            if (transformed) {
-              collectedPackages.push(transformed);
-            }
-          }
-        }
+        const existingNames = new Set(collectedPackages.map((p) => p.name));
+        const uniqueNewPackages = newPackages.filter(
+          (p) => !existingNames.has(p.name)
+        );
+
+        collectedPackages.push(...uniqueNewPackages);
       }
+
+      const finalPackages = collectedPackages.slice(0, size);
+
       return NextResponse.json({
-        packages: collectedPackages.slice(0, size),
-        nextSearchFrom: searchFrom + collectedPackages.length,
+        packages: finalPackages,
+        nextSearchFrom: searchFrom + finalPackages.length,
       });
     }
   } catch (error) {

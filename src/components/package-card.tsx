@@ -9,11 +9,13 @@ import {
   Download,
   GitFork,
   Check,
+  BookOpen,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import Image from "next/image";
 import Link from "next/link";
 import { useState, useEffect } from "react";
+import { ReadmeModal } from "./readme-modal";
 
 type PackageCardProps = {
   package: {
@@ -51,6 +53,8 @@ export function PackageCard({
   const [isSaving, setIsSaving] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
   const [canShare, setCanShare] = useState(false);
+  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
+  const [isReadmeModalOpen, setIsReadmeModalOpen] = useState(false);
 
   useEffect(() => {
     setCanShare(typeof navigator !== "undefined" && !!navigator.share);
@@ -210,6 +214,10 @@ export function PackageCard({
     }
   };
 
+  const DESCRIPTION_TRUNCATE_LENGTH = 150;
+  const isLongDescription =
+    pkg.description && pkg.description.length > DESCRIPTION_TRUNCATE_LENGTH;
+
   const ActionButtons = ({ iconSize }: { iconSize: string }) => (
     <>
       {pkg.repository && (
@@ -263,12 +271,47 @@ export function PackageCard({
           }`}
         >
           <div className="flex justify-between items-center mb-4">
-            <span className="text-sm text-gray-400">Library</span>
+            <span className="text-sm text-gray-400">
+              {pkg.repository ? (
+                <button
+                  onClick={() => setIsReadmeModalOpen(true)}
+                  className="flex items-center space-x-2 hover:text-white transition-colors cursor-pointer"
+                >
+                  <BookOpen className="w-5 h-5" />
+                  <span>README</span>
+                </button>
+              ) : (
+                <button
+                  className="flex items-center space-x-2 pointer-disabled"
+                  disabled
+                >
+                  <BookOpen className="w-5 h-5" />
+                  <span>No README</span>
+                </button>
+              )}
+            </span>
             <span className="text-sm text-gray-400">x {pkg.time}</span>
           </div>
 
           <h2 className="text-4xl font-bold mb-2 break-all">{pkg.name}</h2>
-          <p className="text-gray-400 mb-6">{pkg.description}</p>
+          <div className="text-gray-400 mb-6">
+            <p className="break-words">
+              {isLongDescription && !isDescriptionExpanded
+                ? `${pkg.description.substring(
+                    0,
+                    DESCRIPTION_TRUNCATE_LENGTH
+                  )}...`
+                : pkg.description}
+            </p>
+            {isLongDescription && (
+              <button
+                onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
+                className="text-blue-400 hover:underline text-sm font-medium mt-2"
+              >
+                {isDescriptionExpanded ? "Свернуть" : "Читать далее"}
+              </button>
+            )}
+          </div>
 
           <div className="flex flex-wrap gap-2 mb-6">
             {pkg.tags?.slice(0, 5).map((tag) => (
@@ -297,7 +340,6 @@ export function PackageCard({
               <span>{pkg.stats.forks} Forks</span>
             </div>
           </div>
-
           <div className="flex items-center justify-between pt-4 border-t border-gray-800">
             <div className="flex items-center space-x-2">
               <Link
@@ -368,6 +410,13 @@ export function PackageCard({
           </div>
         )}
       </div>
+      {pkg.repository && (
+        <ReadmeModal
+          isOpen={isReadmeModalOpen}
+          onClose={() => setIsReadmeModalOpen(false)}
+          repository={pkg.repository}
+        />
+      )}
     </div>
   );
 }

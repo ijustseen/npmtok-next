@@ -16,8 +16,14 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center">
-      <div className="bg-[#121212] border border-gray-700 rounded-lg p-8 w-full max-w-md relative">
+    <div
+      className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center"
+      onClick={onClose}
+    >
+      <div
+        className="bg-[#121212] border border-gray-700 rounded-lg p-8 w-full max-w-md relative"
+        onClick={(e) => e.stopPropagation()}
+      >
         <button
           onClick={onClose}
           className="absolute top-4 right-4 text-gray-400 hover:text-white"
