@@ -1,23 +1,57 @@
 "use client";
 
 import { useAuth } from "@/contexts/auth-context";
-import { LogIn, Search, Bookmark, LogOut } from "lucide-react";
+import { LogIn, Search, Bookmark, LogOut, Star } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 
 export function Header() {
-  const { user, openLoginModal, signOut } = useAuth();
+  const { user, session, openLoginModal, signOut } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [isStarred, setIsStarred] = useState(false);
+  const [isStarring, setIsStarring] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
   const [searchQuery, setSearchQuery] = useState(searchParams.get("q") || "");
   const homeUrl = user ? `/feed?refresh=${Date.now()}` : "/";
 
+  // Данные репозитория для звезды
+  const REPO_OWNER = "ijustseen";
+  const REPO_NAME = "npmtok-next";
+
   useEffect(() => {
     setSearchQuery(searchParams.get("q") || "");
   }, [searchParams]);
+
+  // Проверяем статус звезды при загрузке
+  useEffect(() => {
+    const checkStarred = async () => {
+      if (!user || !session?.provider_token) return;
+
+      const response = await fetch(
+        `/api/star?owner=${encodeURIComponent(
+          REPO_OWNER
+        )}&repo=${encodeURIComponent(REPO_NAME)}`,
+        {
+          headers: {
+            Authorization: `Bearer ${session.provider_token}`,
+          },
+        }
+      );
+      if (response.ok) {
+        const data = await response.json();
+        setIsStarred(data.isStarred);
+      } else {
+        setIsStarred(false);
+      }
+    };
+
+    if (user) {
+      checkStarred();
+    }
+  }, [user, session]);
 
   const handleSearch = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" && searchQuery.trim() !== "") {
@@ -31,6 +65,54 @@ export function Header() {
       return;
     }
     router.push("/saved");
+  };
+
+  const handleStarUs = async () => {
+    if (!user || !session?.provider_token) {
+      openLoginModal();
+      return;
+    }
+
+    setIsStarring(true);
+
+    try {
+      const headers = {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.provider_token}`,
+      };
+
+      if (isStarred) {
+        // Unstar
+        const response = await fetch("/api/star", {
+          method: "DELETE",
+          headers: headers,
+          body: JSON.stringify({ owner: REPO_OWNER, repo: REPO_NAME }),
+        });
+
+        if (response.ok) {
+          setIsStarred(false);
+        } else {
+          console.error("Error unstarring repository");
+        }
+      } else {
+        // Star
+        const response = await fetch("/api/star", {
+          method: "POST",
+          headers: headers,
+          body: JSON.stringify({ owner: REPO_OWNER, repo: REPO_NAME }),
+        });
+
+        if (response.ok) {
+          setIsStarred(true);
+        } else {
+          console.error("Error starring repository");
+        }
+      }
+    } catch (error) {
+      console.error("Failed to star/unstar:", error);
+    } finally {
+      setIsStarring(false);
+    }
   };
 
   return (
@@ -65,14 +147,33 @@ export function Header() {
                 <div className="absolute right-0 mt-2 w-48 bg-[#121212] border border-gray-700 rounded-lg shadow-lg py-1">
                   <button
                     onClick={GoToSaved}
-                    className="w-full flex items-center gap-2 px-4 py-2 text-sm text-left text-gray-300 hover:bg-white/10"
+                    className="w-full flex items-center gap-2 px-4 py-2 text-sm text-left text-gray-300 hover:bg-white/10 cursor-pointer"
                   >
                     <Bookmark className="w-4 h-4" />
                     Saved Packages
                   </button>
                   <button
+                    onClick={handleStarUs}
+                    className={`w-full flex items-center gap-2 px-4 py-2 text-sm text-left transition-all ${
+                      isStarred
+                        ? "text-yellow-400"
+                        : "text-gray-300 hover:text-yellow-400"
+                    } hover:bg-white/10 ${
+                      isStarring
+                        ? "opacity-50 cursor-not-allowed"
+                        : "cursor-pointer"
+                    }`}
+                    disabled={isStarring}
+                  >
+                    <Star
+                      className="w-4 h-4"
+                      fill={isStarred ? "currentColor" : "none"}
+                    />
+                    {isStarred ? "Thanks for star!" : "Give me a star"}
+                  </button>
+                  <button
                     onClick={signOut}
-                    className="w-full flex items-center gap-2 px-4 py-2 text-sm text-left text-gray-300 hover:bg-white/10"
+                    className="w-full flex items-center gap-2 px-4 py-2 text-sm text-left text-gray-300 hover:bg-white/10 cursor-pointer"
                   >
                     <LogOut className="w-4 h-4" />
                     Sign Out

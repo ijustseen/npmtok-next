@@ -368,7 +368,7 @@ export function PackageCard({
             </div>
             {variant === "small" && (
               <div className="flex items-center space-x-4">
-                <ActionButtons iconSize="w-5 h-5" />
+                <ActionButtons key="small-actions" iconSize="w-5 h-5" />
               </div>
             )}
           </div>
@@ -400,13 +400,13 @@ export function PackageCard({
         </div>
         {variant === "default" && (
           <div className="absolute top-1/2 -right-16 transform -translate-y-1/2 flex-col space-y-6 hidden md:flex">
-            <ActionButtons iconSize="w-8 h-8" />
+            <ActionButtons key="desktop-actions" iconSize="w-8 h-8" />
           </div>
         )}
 
         {variant === "default" && (
           <div className="absolute top-1/2 right-2 transform pr-2 -translate-y-1/2 flex flex-col space-y-6 md:hidden">
-            <ActionButtons iconSize="w-8 h-8" />
+            <ActionButtons key="mobile-actions" iconSize="w-8 h-8" />
           </div>
         )}
       </div>
