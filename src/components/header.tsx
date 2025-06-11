@@ -116,7 +116,7 @@ export function Header() {
   };
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-10 bg-black/50 backdrop-blur-sm">
+    <header className="fixed top-0 left-0 right-0 z-50 bg-black/50 backdrop-blur-sm">
       <div className="container mx-auto flex h-16 gap-2 items-center justify-between px-4">
         <Link href={homeUrl} className="text-2xl font-bold">
           NPM<span className="text-pink-500">Tok</span>

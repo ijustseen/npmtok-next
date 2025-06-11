@@ -10,12 +10,13 @@ import {
   GitFork,
   Check,
   BookOpen,
+  Sparkles,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
+import { useAIPanel } from "@/contexts/ai-panel-context";
 import Image from "next/image";
 import Link from "next/link";
 import { useState, useEffect } from "react";
-import { ReadmeModal } from "./readme-modal";
 
 type PackageCardProps = {
   package: {
@@ -47,6 +48,7 @@ export function PackageCard({
   variant = "default",
 }: PackageCardProps) {
   const { user, session, openLoginModal } = useAuth();
+  const { openPanel, openReadme } = useAIPanel();
   const [isStarred, setIsStarred] = useState(false);
   const [isBookmarked, setIsBookmarked] = useState(pkg.isBookmarked || false);
   const [isStarring, setIsStarring] = useState(false);
@@ -54,7 +56,6 @@ export function PackageCard({
   const [isCopied, setIsCopied] = useState(false);
   const [canShare, setCanShare] = useState(false);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
-  const [isReadmeModalOpen, setIsReadmeModalOpen] = useState(false);
 
   useEffect(() => {
     setCanShare(typeof navigator !== "undefined" && !!navigator.share);
@@ -214,6 +215,16 @@ export function PackageCard({
     }
   };
 
+  const handleAIAction = () => {
+    openPanel(pkg.name, pkg.repository);
+  };
+
+  const handleReadmeClick = () => {
+    if (pkg.repository) {
+      openReadme(pkg.name, pkg.repository);
+    }
+  };
+
   const DESCRIPTION_TRUNCATE_LENGTH = 150;
   const isLongDescription =
     pkg.description && pkg.description.length > DESCRIPTION_TRUNCATE_LENGTH;
@@ -247,6 +258,13 @@ export function PackageCard({
         />
       </button>
       <button
+        className="text-white transition-all hover:text-purple-400 active:scale-90 cursor-pointer"
+        onClick={handleAIAction}
+        title="AI Generation"
+      >
+        <Sparkles className={iconSize} />
+      </button>
+      <button
         className="text-white transition-all hover:text-blue-500 active:scale-90 cursor-pointer disabled:opacity-50"
         onClick={handleShare}
         disabled={!canShare}
@@ -274,7 +292,7 @@ export function PackageCard({
             <span className="text-sm text-gray-400">
               {pkg.repository ? (
                 <button
-                  onClick={() => setIsReadmeModalOpen(true)}
+                  onClick={handleReadmeClick}
                   className="flex items-center space-x-2 hover:text-white transition-colors cursor-pointer"
                 >
                   <BookOpen className="w-5 h-5" />
@@ -410,13 +428,6 @@ export function PackageCard({
           </div>
         )}
       </div>
-      {pkg.repository && (
-        <ReadmeModal
-          isOpen={isReadmeModalOpen}
-          onClose={() => setIsReadmeModalOpen(false)}
-          repository={pkg.repository}
-        />
-      )}
     </div>
   );
 }
