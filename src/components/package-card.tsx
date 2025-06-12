@@ -332,9 +332,9 @@ export function PackageCard({
           </div>
 
           <div className="flex flex-wrap gap-2 mb-6">
-            {pkg.tags?.slice(0, 5).map((tag) => (
+            {pkg.tags?.slice(0, 5).map((tag, index) => (
               <button
-                key={tag}
+                key={`${tag}-${index}`}
                 onClick={() => onTagClick?.(tag)}
                 disabled={!onTagClick}
                 className="bg-gray-800 text-xs font-semibold px-2.5 py-1 rounded-full cursor-pointer hover:bg-gray-700 disabled:cursor-not-allowed disabled:hover:bg-gray-800"

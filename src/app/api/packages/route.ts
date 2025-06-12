@@ -200,6 +200,7 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const query = searchParams.get("q");
   const size = parseInt(searchParams.get("size") || "10", 10);
+  const from = parseInt(searchParams.get("from") || "0", 10);
 
   try {
     const supabase = await createClient();
@@ -223,11 +224,11 @@ export async function GET(request: Request) {
     }
 
     if (query) {
-      // --- SEARCH LOGIC ---
+      // --- SEARCH LOGIC WITH PAGINATION ---
       const searchResponse = await fetch(
         `https://api.npms.io/v2/search?q=${encodeURIComponent(
           query
-        )}&size=${size}`
+        )}&size=${size}&from=${from}`
       );
       if (!searchResponse.ok) {
         throw new Error(
@@ -245,7 +246,9 @@ export async function GET(request: Request) {
 
       return NextResponse.json({
         packages: collectedPackages,
-        nextSearchFrom: 0, // Not applicable for search
+        total: searchResult.total,
+        hasMore: from + size < searchResult.total,
+        nextFrom: from + size,
       });
     } else {
       // --- FEED LOGIC (OPTIMIZED) ---

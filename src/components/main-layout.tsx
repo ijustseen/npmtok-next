@@ -12,14 +12,8 @@ export function MainLayout({ children }: MainLayoutProps) {
 
   return (
     <>
-      {/* Main content area that shrinks when panel is open */}
-      <div
-        className={`transition-all duration-300 ease-out ${
-          panelState.isOpen ? "md:mr-[50vw] mr-0" : "mr-0"
-        }`}
-      >
-        {children}
-      </div>
+      {/* Main content area without shifting */}
+      {children}
 
       {/* AI Sliding Panel */}
       <AISlidingPanel

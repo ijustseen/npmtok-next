@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { PackageCard } from "@/components/package-card";
 import { Header } from "@/components/header";
+import { MainLayout } from "@/components/main-layout";
 import { useEffect, useState, Suspense } from "react";
 import { useAuth } from "@/contexts/auth-context";
 import { Loader2 } from "lucide-react";
@@ -85,18 +86,18 @@ function SavedPackagesPage() {
 
   if (loading) {
     return (
-      <>
+      <MainLayout>
         <Header />
         <div className="container bg-black mx-auto py-10 pt-20">
           <h1 className="text-4xl font-bold mb-8">Your Saved Packages</h1>
           <p>Loading...</p>
         </div>
-      </>
+      </MainLayout>
     );
   }
 
   return (
-    <>
+    <MainLayout>
       <Header />
       <div className="container bg-black mx-auto py-10 pt-20">
         <h1 className="text-4xl font-bold mb-8">Your Saved Packages</h1>
@@ -118,6 +119,6 @@ function SavedPackagesPage() {
           <p>You haven&apos;t saved any packages yet.</p>
         )}
       </div>
-    </>
+    </MainLayout>
   );
 }
