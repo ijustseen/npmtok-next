@@ -1,7 +1,15 @@
 "use client";
 
 import { useAuth } from "@/contexts/auth-context";
-import { LogIn, Search, Bookmark, LogOut, Star } from "lucide-react";
+import {
+  LogIn,
+  Search,
+  Bookmark,
+  LogOut,
+  Star,
+  Github,
+  Linkedin,
+} from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import Image from "next/image";
@@ -121,7 +129,7 @@ export function Header() {
         <Link href={homeUrl} className="text-2xl font-bold">
           NPM<span className="text-pink-500">Tok</span>
         </Link>
-        <div className="relative flex-1 max-w-md mx-auto justify-self-center">
+        <div className="relative flex-1 max-w-[12rem] md:max-w-md mx-auto justify-self-center">
           <input
             type="text"
             placeholder="Search packages..."
@@ -130,9 +138,41 @@ export function Header() {
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyDown={handleSearch}
           />
-          <Search className="absolute top-1/2 right-3 -translate-y-1/2 w-5 h-5 text-gray-400" />
+          <button
+            onClick={() => {
+              if (searchQuery.trim() !== "") {
+                router.push(
+                  `/search?q=${encodeURIComponent(searchQuery.trim())}`
+                );
+              }
+            }}
+            aria-label="Search"
+            className="absolute top-1/2 right-3 -translate-y-1/2 p-1"
+          >
+            <Search className="w-5 h-5 text-gray-400" />
+          </button>
         </div>
-        <div className="relative">
+        <div className="hidden md:flex items-center gap-4 ml-4">
+          <Link
+            href="https://github.com/ijustseen"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="GitHub"
+            className="hover:text-white text-gray-400"
+          >
+            <Github className="w-5 h-5" />
+          </Link>
+          <Link
+            href="https://www.linkedin.com/in/andrew-eroshenkov /"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="LinkedIn"
+            className="hover:text-white text-gray-400"
+          >
+            <Linkedin className="w-5 h-5" />
+          </Link>
+        </div>
+        <div className="relative ml-2">
           {user ? (
             <div className="relative">
               <Image

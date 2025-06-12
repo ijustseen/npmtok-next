@@ -106,7 +106,7 @@ export function AISlidingPanel({
         }`}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-3 md:p-6 border-b border-gray-700 bg-[#121212]">
+        <div className="flex items-center justify-between p-3 md:p-6 border-b border-gray-700">
           <div className="flex items-center space-x-2 min-w-0 flex-1 mr-3">
             <Sparkles className="w-5 h-5 text-purple-400 flex-shrink-0" />
             <h2 className="text-sm md:text-lg font-bold text-white truncate">
