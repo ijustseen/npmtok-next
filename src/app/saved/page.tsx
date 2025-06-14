@@ -102,14 +102,15 @@ function SavedPackagesPage() {
       <div className="container bg-black mx-auto py-10 pt-20">
         <h1 className="text-4xl font-bold mb-8">Your Saved Packages</h1>
         {bookmarkedPackages && bookmarkedPackages.length > 0 ? (
-          <div className="gap-8 [column-count:1] md:[column-count:2] lg:[column-count:3]">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {bookmarkedPackages.map(
               (item: BookmarkedPackage, index: number) => (
-                <div key={index} className="mb-8 break-inside-avoid">
+                <div key={index} className="h-full flex">
                   <PackageCard
                     package={{ ...item.package, isBookmarked: true }}
                     onTagClick={handleTagClick}
                     variant="small"
+                    className="h-full flex justify-center items-stretch"
                   />
                 </div>
               )

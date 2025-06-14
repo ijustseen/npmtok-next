@@ -5,7 +5,7 @@ const nextConfig = {
     remotePatterns: [
       {
         protocol: "https",
-        hostname: "api.dicebear.com",
+        hostname: "github.com",
       },
       {
         protocol: "https",

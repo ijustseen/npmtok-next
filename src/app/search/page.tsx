@@ -91,8 +91,14 @@ function SearchPage() {
         const data = await response.json();
 
         if (isLoadMore) {
-          // Добавляем новые результаты к существующим
-          setResults((prev) => [...prev, ...(data.packages || [])]);
+          // Добавляем новые результаты к существующим с дедупликацией
+          setResults((prev) => {
+            const existingNames = new Set(prev.map((p) => p.name));
+            const newPackages = (data.packages || []).filter(
+              (pkg: Package) => !existingNames.has(pkg.name)
+            );
+            return [...prev, ...newPackages];
+          });
         } else {
           // Заменяем результаты (новый поиск)
           setResults(data.packages || []);
@@ -163,7 +169,7 @@ function SearchPage() {
           </div>
         ) : (
           <>
-            <div className="gap-8 [column-count:1] md:[column-count:2] lg:[column-count:3]">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {results.length > 0
                 ? results.map((pkg, index) => {
                     // Добавляем ref к предпоследнему элементу для триггера загрузки
@@ -171,14 +177,15 @@ function SearchPage() {
 
                     return (
                       <div
-                        key={pkg.name}
-                        className="mb-8 break-inside-avoid"
+                        key={`${pkg.name}-${index}`}
+                        className="h-full flex"
                         ref={isTriggerElement ? lastPackageElementRef : null}
                       >
                         <PackageCard
                           package={pkg}
                           onTagClick={handleTagClick}
                           variant="small"
+                          className="h-full flex justify-center items-stretch"
                         />
                       </div>
                     );

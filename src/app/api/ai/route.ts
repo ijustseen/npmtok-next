@@ -45,21 +45,13 @@ export async function POST(request: Request) {
 
     // Use real Gemini API if key is provided, otherwise use demo
     const isUsingRealAI = !!process.env.GEMINI_API_KEY;
-    console.log("🔍 AI Debug:", {
-      hasGeminiKey: !!process.env.GEMINI_API_KEY,
-      keyLength: process.env.GEMINI_API_KEY?.length || 0,
-      isUsingRealAI,
-    });
 
     let response: string;
 
     try {
       if (isUsingRealAI) {
-        console.log("🤖 Using Gemini AI...");
         response = await callGemini(prompt);
-        console.log("✅ Gemini response received");
       } else {
-        console.log("🎭 Using demo response...");
         response = await simulateAIResponse(prompt, action, packageName);
       }
     } catch (aiError) {

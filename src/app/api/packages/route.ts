@@ -33,6 +33,18 @@ type NpmsPackage = {
   };
 };
 
+type NpmPackage = {
+  name: string;
+  description: string;
+  version: string;
+  keywords?: string[];
+  author?: { name: string } | string;
+  maintainers?: { name: string; email: string }[];
+  repository?: { url: string; type: string };
+  homepage?: string;
+  time: Record<string, string>;
+};
+
 type Package = {
   name: string;
   description: string;
@@ -78,6 +90,155 @@ function formatTime(dateString: string): string {
     return `${days} day${days > 1 ? "s" : ""} ago`;
   }
   return "today";
+}
+
+// Transform NPM Registry package to our format
+async function transformNpmPackage(
+  pkg: NpmPackage,
+  bookmarkedPackagesSet: Set<string>
+): Promise<Package | null> {
+  if (!pkg) return null;
+
+  let authorHandle = "N/A";
+  let repository: { owner: string; name: string } | null = null;
+
+  // Parse repository info
+  const repoUrl = pkg.repository?.url || pkg.homepage;
+  if (repoUrl) {
+    const match = repoUrl.match(/github\.com\/([^/]+)\/([^/]+)/);
+    if (match) {
+      authorHandle = match[1];
+      repository = {
+        owner: match[1],
+        name: match[2].replace(/\.git$/, "").replace(/\.js$/, ""),
+      };
+    }
+  }
+
+  // Fallback author detection
+  if (authorHandle === "N/A") {
+    if (typeof pkg.author === "object" && pkg.author?.name) {
+      authorHandle = pkg.author.name.replace(/\s/g, "-").toLowerCase();
+    } else if (typeof pkg.author === "string") {
+      authorHandle = pkg.author.replace(/\s/g, "-").toLowerCase();
+    } else if (pkg.maintainers && pkg.maintainers.length > 0) {
+      authorHandle = pkg.maintainers[0].name;
+    }
+  }
+
+  // Get latest version time
+  const versions = Object.keys(pkg.time).filter(
+    (v) => v !== "created" && v !== "modified"
+  );
+  const latestVersion = versions[versions.length - 1] || pkg.version;
+  const timeString =
+    pkg.time[latestVersion] || pkg.time.modified || pkg.time.created;
+
+  // Try to get GitHub stats if repository exists
+  let starsCount = 0;
+  let forksCount = 0;
+  if (repository) {
+    try {
+      const res = await fetch(
+        `https://api.github.com/repos/${repository.owner}/${repository.name}`,
+        {
+          headers: {
+            ...(process.env.GITHUB_TOKEN
+              ? { Authorization: `token ${process.env.GITHUB_TOKEN}` }
+              : {}),
+          },
+        }
+      );
+      if (res.ok) {
+        const repoData = await res.json();
+        starsCount = repoData.stargazers_count || 0;
+        forksCount = repoData.forks_count || 0;
+      }
+    } catch (error) {
+      console.error(
+        `Failed to fetch github data for ${repository.owner}/${repository.name}`,
+        error
+      );
+    }
+  }
+
+  return {
+    name: pkg.name,
+    description: pkg.description || "No description available",
+    author: authorHandle,
+    version: `v${pkg.version}`,
+    tags: pkg.keywords || [],
+    stats: {
+      downloads: "0", // NPM Registry doesn't provide download stats
+      stars: formatNumber(starsCount),
+      forks: formatNumber(forksCount),
+    },
+    time: formatTime(timeString),
+    repository,
+    npmLink: `https://www.npmjs.com/package/${pkg.name}`,
+    isBookmarked: bookmarkedPackagesSet.has(pkg.name),
+  };
+}
+
+async function searchNpmRegistry(
+  query: string,
+  size: number = 10,
+  from: number = 0
+): Promise<{ packages: string[]; total: number }> {
+  try {
+    const response = await fetch(
+      `https://registry.npmjs.org/-/v1/search?text=${encodeURIComponent(
+        query
+      )}&size=${size}&from=${from}`
+    );
+    if (!response.ok) return { packages: [], total: 0 };
+
+    const data = await response.json();
+    return {
+      packages:
+        data.objects?.map(
+          (obj: { package: { name: string } }) => obj.package.name
+        ) || [],
+      total: data.total || 0,
+    };
+  } catch (error) {
+    console.error("Failed to search NPM registry:", error);
+    return { packages: [], total: 0 };
+  }
+}
+
+async function getPackageFromNpmRegistry(
+  packageName: string
+): Promise<NpmPackage | null> {
+  try {
+    const response = await fetch(
+      `https://registry.npmjs.org/${encodeURIComponent(packageName)}`
+    );
+    if (!response.ok) return null;
+
+    const data = await response.json();
+    const latestVersion = data["dist-tags"]?.latest;
+    if (!latestVersion || !data.versions?.[latestVersion]) return null;
+
+    const versionData = data.versions[latestVersion];
+    return {
+      name: data.name,
+      description: versionData.description,
+      version: latestVersion,
+      keywords: versionData.keywords,
+      author: versionData.author,
+      maintainers: data.maintainers,
+      repository: versionData.repository,
+      homepage: versionData.homepage,
+      time: data.time,
+    };
+  } catch (error) {
+    console.error(
+      `Failed to fetch package ${packageName} from NPM registry:`,
+      error
+    );
+    return null;
+  }
 }
 
 async function transformNpmsPackage(
@@ -180,16 +341,20 @@ async function getTransformedPackages(
   packageNames: string[],
   bookmarkedPackagesSet: Set<string>
 ): Promise<Package[]> {
-  const packageDetailsPromises = packageNames.map((name: string) =>
-    fetch(`https://api.npms.io/v2/package/${encodeURIComponent(name)}`).then(
-      (res) => (res.ok ? res.json() : null)
-    )
+  const packageDetailsPromises = packageNames.map(
+    (name: string, index: number) =>
+      fetch(`https://api.npms.io/v2/package/${encodeURIComponent(name)}`)
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => ({ data, index }))
   );
   const packageDetailsResults = await Promise.all(packageDetailsPromises);
 
+  // Сортируем по исходному индексу для сохранения порядка
+  packageDetailsResults.sort((a, b) => a.index - b.index);
+
   const transformedPackages = await Promise.all(
-    packageDetailsResults.map((p) =>
-      transformNpmsPackage(p, bookmarkedPackagesSet)
+    packageDetailsResults.map(({ data }) =>
+      transformNpmsPackage(data, bookmarkedPackagesSet)
     )
   );
 
@@ -224,7 +389,7 @@ export async function GET(request: Request) {
     }
 
     if (query) {
-      // --- SEARCH LOGIC WITH PAGINATION ---
+      // --- SEARCH LOGIC WITH FALLBACK ---
       const searchResponse = await fetch(
         `https://api.npms.io/v2/search?q=${encodeURIComponent(
           query
@@ -236,18 +401,51 @@ export async function GET(request: Request) {
         );
       }
       const searchResult: NpmsSearchResult = await searchResponse.json();
-      const rawPackages = searchResult.results;
+      let collectedPackages: Package[] = [];
+      let npmResult: { packages: string[]; total: number } = {
+        packages: [],
+        total: 0,
+      };
 
-      const packageNames = rawPackages.map((r) => r.package.name);
-      const collectedPackages = await getTransformedPackages(
-        packageNames,
-        bookmarkedPackagesSet
-      );
+      if (searchResult.results.length > 0) {
+        // Use NPMS.io results if found
+        const packageNames = searchResult.results.map((r) => r.package.name);
+        collectedPackages = await getTransformedPackages(
+          packageNames,
+          bookmarkedPackagesSet
+        );
+      } else {
+        // Fallback to NPM Registry search
+        npmResult = await searchNpmRegistry(query, size, from);
+
+        if (npmResult.packages.length > 0) {
+          const npmPackagePromises = npmResult.packages.map((name, index) =>
+            getPackageFromNpmRegistry(name).then((data) => ({ data, index }))
+          );
+          const npmPackages = await Promise.all(npmPackagePromises);
+
+          // Сортируем по исходному индексу для сохранения порядка
+          npmPackages.sort((a, b) => a.index - b.index);
+
+          const transformedNpmPackages = await Promise.all(
+            npmPackages.map(({ data }) =>
+              data ? transformNpmPackage(data, bookmarkedPackagesSet) : null
+            )
+          );
+
+          collectedPackages = transformedNpmPackages.filter(
+            (p): p is Package => p !== null
+          );
+        }
+      }
 
       return NextResponse.json({
         packages: collectedPackages,
-        total: searchResult.total,
-        hasMore: from + size < searchResult.total,
+        total: searchResult.total || collectedPackages.length,
+        hasMore:
+          searchResult.results.length > 0
+            ? from + size < searchResult.total
+            : from + size < npmResult.total,
         nextFrom: from + size,
       });
     } else {

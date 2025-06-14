@@ -1,7 +1,7 @@
 "use client";
 
 import { useAIPanel } from "@/contexts/ai-panel-context";
-import { AISlidingPanel } from "./sliding-panel";
+import { AISlidingPanel } from "./sliding-panel/sliding-panel";
 
 interface MainLayoutProps {
   children: React.ReactNode;
