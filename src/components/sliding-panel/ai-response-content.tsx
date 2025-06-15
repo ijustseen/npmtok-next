@@ -1,4 +1,7 @@
 import ReactMarkdown from "react-markdown";
+import rehypeHighlight from "rehype-highlight";
+import remarkGfm from "remark-gfm";
+import rehypeRaw from "rehype-raw";
 
 interface AIResponseContentProps {
   response: string;
@@ -9,6 +12,8 @@ export function AIResponseContent({ response }: AIResponseContentProps) {
     <div className="p-4 md:p-6">
       <div className="prose prose-invert max-w-none text-gray-300 leading-relaxed">
         <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
+          rehypePlugins={[rehypeHighlight, rehypeRaw]}
           components={{
             h1: ({ children }) => (
               <h1 className="text-2xl font-bold text-white mb-6 mt-8 first:mt-0 border-b border-gray-700 pb-2">
@@ -49,20 +54,29 @@ export function AIResponseContent({ response }: AIResponseContentProps) {
             em: ({ children }) => (
               <em className="text-gray-400 italic">{children}</em>
             ),
+            img: ({ src, alt, title }) => (
+              <div className="my-6 flex justify-center">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={src}
+                  alt={alt || ""}
+                  title={title}
+                  className="max-w-full h-auto rounded-lg border border-gray-700 shadow-lg"
+                  loading="lazy"
+                />
+              </div>
+            ),
             code: ({ children, className }) => {
               const isInline = !className;
               if (isInline) {
                 return (
-                  <code className="bg-gray-800 text-green-400 px-2 py-1 rounded text-sm font-mono">
+                  <code className="bg-gray-800 text-yellow-300 px-2 py-1 rounded text-sm font-mono">
                     {children}
                   </code>
                 );
               }
-              return (
-                <code className="block bg-gray-900 text-green-400 p-4 rounded-lg text-sm font-mono overflow-x-auto whitespace-pre-wrap">
-                  {children}
-                </code>
-              );
+              // Для блоков кода убираем переопределение стилей, чтобы highlight.js работал
+              return children;
             },
             pre: ({ children }) => (
               <div className="mb-6">
@@ -72,7 +86,9 @@ export function AIResponseContent({ response }: AIResponseContentProps) {
                       CODE
                     </span>
                   </div>
-                  <pre className="p-4 overflow-x-auto">{children}</pre>
+                  <pre className="p-4 overflow-x-auto !bg-transparent">
+                    {children}
+                  </pre>
                 </div>
               </div>
             ),

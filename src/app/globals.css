@@ -20,3 +20,76 @@ body {
   content-visibility: auto;
   contain-intrinsic-size: 80vh;
 }
+
+/* Кастомные стили для подсветки синтаксиса */
+.hljs {
+  background: transparent !important;
+  color: #e6edf3 !important;
+}
+
+/* Переменные */
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class,
+.hljs-regexp,
+.hljs-deletion {
+  color: #ff6b6b !important;
+}
+
+/* Строки */
+.hljs-string,
+.hljs-literal,
+.hljs-subst,
+.hljs-template-tag,
+.hljs-addition {
+  color: #51cf66 !important;
+}
+
+/* Ключевые слова */
+.hljs-keyword,
+.hljs-built_in,
+.hljs-selector-tag,
+.hljs-section,
+.hljs-link,
+.hljs-meta {
+  color: #845ef7 !important;
+}
+
+/* Функции и методы */
+.hljs-function,
+.hljs-title,
+.hljs-attr,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-code {
+  color: #ffd43b !important;
+}
+
+/* Числа */
+.hljs-number,
+.hljs-params {
+  color: #74c0fc !important;
+}
+
+/* Комментарии */
+.hljs-comment,
+.hljs-quote,
+.hljs-doctag {
+  color: #6c757d !important;
+  font-style: italic;
+}
+
+/* Типы */
+.hljs-type,
+.hljs-class .hljs-title {
+  color: #20c997 !important;
+}
+
+/* Операторы */
+.hljs-operator,
+.hljs-punctuation {
+  color: #adb5bd !important;
+}
